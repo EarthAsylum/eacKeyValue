@@ -58,12 +58,15 @@ Similar to WP options/transients with less overhead (and fewer hooks).
 #### Optional constants:
 
  set the max records to hold before a commit
+ 
      define( 'EAC_KEYVALUE_AUTO_COMMMIT', int );             //  default: 1,000
 
  when scheduling an automatic purge, set the interval to schedule. Must be a valid WP schedule name.
+
      define( 'EAC_KEYVALUE_PURGE_SCHEDULE', string|false );  // default: 'daily'
 
  when scheduling an automatic purge, set the initial start time as timestamp or strtotime.
+
      define( 'EAC_KEYVALUE_PURGE_START', int|string|false ); // default: 'tomorrow 2:15am'
 
 
