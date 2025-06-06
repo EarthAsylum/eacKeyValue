@@ -136,7 +136,7 @@ namespace EarthAsylumConsulting
                 global $wp_object_cache;
                 if (defined('EAC_KEYVALUE_AUTO_COMMMIT') && is_int(EAC_KEYVALUE_AUTO_COMMMIT)) {
                     self::$auto_commit      = EAC_KEYVALUE_AUTO_COMMMIT;
-                } else if (isset($wp_object_cache,$wp_object_cache->delayed_writes)) {
+                } else if (isset($wp_object_cache->delayed_writes) && is_int($wp_object_cache->delayed_writes)) {
                     self::$auto_commit      = $wp_object_cache->delayed_writes;     // {eac}ObjectCache
                 }
                 if (defined('EAC_KEYVALUE_PURGE_SCHEDULE')) {
