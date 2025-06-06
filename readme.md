@@ -13,8 +13,8 @@ Requires at least:      5.8
 Tested up to:           6.8  
 Requires PHP:           8.1  
 Contributors:           [earthasylum](https://github.com/earthasylum),[kevinburkholder](https://profiles.wordpress.org/kevinburkholder)  
-License:				GPLv3 or later  
-License URI:			https://www.gnu.org/licenses/gpl.html  
+License:                GPLv3 or later  
+License URI:            https://www.gnu.org/licenses/gpl.html  
 GitHub URI:             https://github.com/EarthAsylum/eacKeyValue  
 
 </details>
@@ -58,7 +58,6 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 #### Optional constants:
 
 Set the maximum number of records to hold before a commit.
-*If the installed object cache has the 'delayed_writes' property set (`$wp_object_cache->delayed_writes`), this value will override the default (1,000) auto commit.*
  
      define( 'EAC_KEYVALUE_AUTO_COMMMIT', int );             //  default: 1,000
 
@@ -69,6 +68,8 @@ When scheduling an automatic purge, set the interval to schedule. Must be a vali
 When scheduling an automatic purge, set the initial start time as timestamp or strtotime.
 
      define( 'EAC_KEYVALUE_PURGE_START', int|string|false ); // default: 'tomorrow 2:15am'
+
+>   If the installed object cache has the 'delayed_writes' property set (`$wp_object_cache->delayed_writes`), this value will override the default (1,000) auto commit.
 
 
 ### Installation
