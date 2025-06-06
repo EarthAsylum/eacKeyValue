@@ -57,15 +57,16 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 
 #### Optional constants:
 
- set the max records to hold before a commit
+Set the maximum number of records to hold before a commit.
+*If the installed object cache has the 'delayed_writes' property set (`$wp_object_cache->delayed_writes`), this value will override the default (1,000) auto commit.*
  
      define( 'EAC_KEYVALUE_AUTO_COMMMIT', int );             //  default: 1,000
 
- when scheduling an automatic purge, set the interval to schedule. Must be a valid WP schedule name.
+When scheduling an automatic purge, set the interval to schedule. Must be a valid WP schedule name.
 
      define( 'EAC_KEYVALUE_PURGE_SCHEDULE', string|false );  // default: 'daily'
 
- when scheduling an automatic purge, set the initial start time as timestamp or strtotime.
+When scheduling an automatic purge, set the initial start time as timestamp or strtotime.
 
      define( 'EAC_KEYVALUE_PURGE_START', int|string|false ); // default: 'tomorrow 2:15am'
 
