@@ -1,7 +1,7 @@
-## {eac}KeyValue
+## {eac}KeyValue - key-value pair storage mechanism for WordPress
 [![EarthAsylum Consulting](https://img.shields.io/badge/EarthAsylum-Consulting-0?&labelColor=6e9882&color=707070)](https://earthasylum.com/)
 [![WordPress](https://img.shields.io/badge/WordPress-Plugins-grey?logo=wordpress&labelColor=blue)](https://wordpress.org/plugins/search/EarthAsylum/)
-)
+
 
 <details><summary>Document Header</summary>
 
@@ -19,12 +19,12 @@ GitHub URI:             https://github.com/EarthAsylum/eacKeyValue
 
 </details>
 
-**{eac}KeyValue** - An easy to use, efficient, key-value pair storage mechanism that takes advatage of the WP Object Cache.
+An easy to use, efficient, key-value pair storage mechanism for WordPress that takes advatage of the WP Object Cache.
+Similar to WP options/transients with less overhead and greater efficiency (and fewer hooks).
 
 ### Description
 
-An easy to use, efficient, key-value pair storage mechanism that takes advatage of the WP Object Cache.
-Similar to WP options/transients with less overhead (and fewer hooks).
+**{eac}KeyValue** Is added to WordPress as a stand-alone, "Must Use" plugin or by including the file in any project or plugin. It provides a simple API for storing and retrieving key-value pairs with any data type. Integrated tightly with the [WordPress object cache](https://developer.wordpress.org/reference/classes/wp_object_cache/) (whether the default or a drop-in persistent cache), _{eac}KeyValue_ provides L1 (memory) caching _and_ L2 (MySQL) permanence as well as Write-Back (delayed writes) or Write-Through updating for greater efficiency.
 
 #### Actors SHOULD use:
 
