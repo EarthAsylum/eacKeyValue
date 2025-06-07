@@ -72,7 +72,62 @@ Set the maximum number of records to hold before a database commit.
 >   If the installed object cache has the `delayed_writes` property set (`$wp_object_cache->delayed_writes`), this value will override the default auto commit.
 
 
+### {eac}KeyValueCapture
+
+This plugin uses _{eac}KeyValue_ to capture WordPress options and transients to direct them to the key-value API.
+
+_This is experimental_
+
+
+To capture an option and route it to eacKeyValue:
+
+     eacKeyValueCapture::option_capture('option_name');
+
+Add 'true' to have the original value saved to cache and deleted from WP options:
+
+     eacKeyValueCapture::option_capture('option_name',true);
+
+To release a captured option (restores to WP options):
+
+     eacKeyValueCapture::option_release('option_name');
+
+To capture a transient and route it to eacKeyValue:
+
+     eacKeyValueCapture::transient_capture('transient_name');
+
+Add 'true' to have the original value saved to cache and deleted from WP options:
+
+     eacKeyValueCapture::transient_capture('transient_name',true);
+
+To release a captured transient:
+
+     eacKeyValueCapture::transient_release('transient_name');
+
+Global alias functions:
+
+     capture_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_capture()
+     release_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_release()
+     capture_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_capture()
+     release_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_release()
+
+Notes:
+
+- `add_option()` and `delete_option()` can not be circumvented but are captured to eacKeyValue.
+- If an option doesn't exist in WP options, it won't be deleted from eacKeyValue with `delete_option()`.
+- Since we circumvent `update_option()` but not `add_option()`, an option that was updated but never added, can't be deleted from eacKeyValue.
+
+- `set_transient()` can not be circumvented (but the called update_option is).
+
+- WP's `$alloptions`/`$nooptions` caching with a persistent object caching may interfere with pushing an option or transient back to the options table when releasing.
+
+- When circumventing functions using "pre" filters, the usual default hooks are not triggered. This could be detrimental to other processes and may be addressed in the future.
+
+
 ### Installation
 
+**{eac}KeyValue**
 -   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder.
+
+**{eac}KeyValueCapture**
+-   Drop the `eacKeyValueCapture.php` file into your `wp-content/mu-plugins` folder or include it in your `functions.php` and add `capture_option()` or `capture_transient()` calls as needed.
 

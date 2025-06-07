@@ -57,7 +57,7 @@
  *
  *      set_transient can not be circumvented (but the called update_option is).
  *
- *      WP'a $alloptions/$nooptions caching with a persistent object caching may interfere with pushing
+ *      WP's $alloptions/$nooptions caching with a persistent object caching may interfere with pushing
  *      an option or transient back to the options table when releasing.
  *
  *      When circumventing functions using "pre" filters, following default hooks are not triggered.
