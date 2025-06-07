@@ -386,7 +386,11 @@ namespace EarthAsylumConsulting
                 else                                    // to be committed
                 {
                     self::$commit_keys[self::$site_id][$key] = $value;
-                    unset(self::$missed_keys[self::$site_id][$key]);
+                    if ($value) {	// to update
+	                    unset(self::$missed_keys[self::$site_id][$key]);
+	                } else {		// to delete
+	                    self::$missed_keys[self::$site_id][$key] = null;
+	                }
 
                     $count = count(self::$commit_keys,COUNT_RECURSIVE) - count(self::$commit_keys);
                     if ($count >= self::$auto_commit) {

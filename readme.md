@@ -59,6 +59,41 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
                                 string          - textual datetime, local time (wp_timezone)
                                 DateTime object - converted to UTC
 
+#### Examples:
+
++   Store a permanent key/value:
+
+`setKeyValue( 'my_permanent_key', $value );`
+
++   Retrieve a key/value:
+
+`$value = getKeyValue( 'my_permanent_key' );`
+
++   Store a key/value with an expiration:
+
+`setKeyValue( 'my_transient_key', $value, HOUR_IN_SECONDS );`
+`setKeyValue( 'my_transient_key', $value, time() + HOUR_IN_SECONDS );`
+`setKeyValue( 'my_transient_key', $value, '1 hour' );`
+
++   Retrieve a key with a default value:
+
+`$value = getKeyValue( 'my_not_found_key', time() );`
+
++   Using a callback when retrieving a key:
+```php
+$value = getKeyValue( 'my_not_found_key', function($key)
+    {
+        // do something to generate $value
+        setKeyValue( $key, $value, HOUR_IN_SECONDS );
+        return $value;
+    }
+);
+```
+
++   Delete a key/value:
+
+`setKeyValue( 'my_permanent_key', null );`
+
 #### Optional constants:
 
 +   When scheduling the automatic purge, set the interval to schedule. Must be a valid WP schedule name.  
@@ -86,5 +121,3 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 
 +   Added multi-site support.
 +   Cache eacKeyValue dynamic settings (tables & missed keys).
-
-
