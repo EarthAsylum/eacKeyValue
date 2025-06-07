@@ -77,7 +77,7 @@ Set the maximum number of records to hold before a database commit.
 
 This plugin uses _{eac}KeyValue_ to capture WordPress option or transient API calls to direct them to the Key-Value API.
 
-##### This is experimental and is not without issue or risk.
+##### -- This is experimental and is not without issue or risk. --
 
 #### Options
 
@@ -107,14 +107,14 @@ To release a captured transient:
 
      eacKeyValueCapture::transient_release('transient_name');
 
-Global alias functions:
+#### Global alias functions:
 
      capture_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_capture()
      release_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_release()
      capture_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_capture()
      release_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_release()
 
-Notes:
+#### Notes:
 
 - `add_option()` and `delete_option()` can not be circumvented but are captured to eacKeyValue.
 - If an option doesn't exist in WP options, it won't be deleted from eacKeyValue with `delete_option()`.
