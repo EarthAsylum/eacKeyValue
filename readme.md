@@ -62,22 +62,26 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 #### Examples:
 
 +   Store a permanent key/value:
-
-`setKeyValue( 'my_permanent_key', $value );`
+```php
+setKeyValue( 'my_permanent_key', $value );
+```
 
 +   Retrieve a key/value:
-
-`$value = getKeyValue( 'my_permanent_key' );`
+```php
+$value = getKeyValue( 'my_permanent_key' );
+```
 
 +   Store a key/value with an expiration:
-
-`setKeyValue( 'my_transient_key', $value, HOUR_IN_SECONDS );`
-`setKeyValue( 'my_transient_key', $value, time() + HOUR_IN_SECONDS );`
-`setKeyValue( 'my_transient_key', $value, '1 hour' );`
+```php
+setKeyValue( 'my_transient_key', $value, HOUR_IN_SECONDS );
+setKeyValue( 'my_transient_key', $value, time() + HOUR_IN_SECONDS );
+setKeyValue( 'my_transient_key', $value, '1 hour' );
+```
 
 +   Retrieve a key with a default value:
-
-`$value = getKeyValue( 'my_not_found_key', time() );`
+```php
+$value = getKeyValue( 'my_not_found_key', time() );
+```
 
 +   Using a callback when retrieving a key:
 ```php
@@ -91,8 +95,9 @@ $value = getKeyValue( 'my_not_found_key', function($key)
 ```
 
 +   Delete a key/value:
-
-`setKeyValue( 'my_permanent_key', null );`
+```php
+setKeyValue( 'my_permanent_key', null );
+```
 
 #### Optional constants:
 
