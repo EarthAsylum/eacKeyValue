@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValueCapture
  * Description:         {eac}KeyValueCapture - Capture options and transients to {eac}KeyValue
  * Version:             1.0.0
- * Last Updated:        05-Jun-2025
+ * Last Updated:        07-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -26,40 +26,46 @@
 /* *****
  * This is a self-contained piece of code - drop in to plugins or mu-plugins folder to invoke.
  *
- * To capture an option and route it to eacKeyValue:
- *      eacKeyValueCapture::option_capture('option_name');
- * Add 'true' to have the original value saved to cache and deleted from WP options:
- *      eacKeyValueCapture::option_capture('option_name',true);
+ * This plugin uses _{eac}KeyValue_ to capture individual WordPress option or transient API calls
+ * to direct them to the Key-Value API.
  *
- * To release a captured option (restores to WP options):
- *      eacKeyValueCapture::option_release('option_name');
+ * -- This is experimental and is not without issue or risk. --
  *
- * To capture a transient and route it to eacKeyValue:
- *      eacKeyValueCapture::transient_capture('transient_name');
- * Add 'true' to have the original value saved to cache and deleted from WP options:
- *      eacKeyValueCapture::transient_capture('transient_name',true);
+ * *****
  *
- * To release a captured transient:
- *      eacKeyValueCapture::transient_release('transient_name');
+	#### Options
+
+	To capture an option and route it to eacKeyValue:
+		`eacKeyValueCapture::option_capture('option_name');`
+	Add 'true' to have the original value saved to cache and deleted from WP options:
+		`eacKeyValueCapture::option_capture('option_name',true);`
+	To release a captured option (restores to WP options):
+		`eacKeyValueCapture::option_release('option_name');`
+
+	#### Transients
+
+	To capture a transient and route it to eacKeyValue:
+		`eacKeyValueCapture::transient_capture('transient_name');`
+	Add 'true' to have the original value saved to cache and deleted from WP options:
+		`eacKeyValueCapture::transient_capture('transient_name',true);`
+	To release a captured transient:
+		`eacKeyValueCapture::transient_release('transient_name');`
+
+	#### Global alias functions:
+
+		 capture_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_capture()
+		 release_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_release()
+		 capture_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_capture()
+		 release_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_release()
+
+	#### Notes:
+
+	+   `add_option()` and `delete_option()` can not be circumvented but are captured to eacKeyValue.
+	+   If an option doesn't exist in WP options, it won't be deleted from eacKeyValue with `delete_option()`.
+	+   `set_transient()` can not be circumvented (but the called update_option is).
+	+   WP's `$alloptions`/`$nooptions` caching with a persistent object caching may interfere with pushing an option or transient back to the options table when releasing.
+	+   When circumventing functions using "pre" filters, the usual default hooks are not triggered. This could be detrimental to other processes and may be addressed in the future.
  *
- * Global alias functions:
- *      capture_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_capture()
- *      release_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_release()
- *      capture_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_capture()
- *      release_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_release()
- *
- * Notes:
- *
- *      add_option() and delete_option() can not be circumvented but are captured to eacKeyValue.
- *      if an option doesn't exist in WP options, it won't be deleted from eacKeyValue.
- *
- *      set_transient can not be circumvented (but the called update_option is).
- *
- *      WP's $alloptions/$nooptions caching with a persistent object caching may interfere with pushing
- *      an option or transient back to the options table when releasing.
- *
- *      When circumventing functions using "pre" filters, following default hooks are not triggered.
- *      This could be detrimental to other processes and may be addressed in the future.
  * ***** */
 
 namespace EarthAsylumConsulting

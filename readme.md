@@ -7,8 +7,8 @@
 
 Plugin URI:             https://github.com/EarthAsylum/eacKeyValue  
 Author:                 [EarthAsylum Consulting](https://www.earthasylum.com)  
-Stable tag:             1.0.0  
-Last Updated:           06-Jun-2025  
+Stable tag:             1.1.0  
+Last Updated:           07-Jun-2025  
 Requires at least:      5.8  
 Tested up to:           6.8  
 Requires PHP:           8.1  
@@ -24,88 +24,76 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 
 ### Description
 
-**{eac}KeyValue** Is added to WordPress as a stand-alone, "Must Use" plugin or by including the file in any project or plugin. It provides a simple API for storing and retrieving key-value pairs with any data type. Integrated tightly with the [WordPress object cache](https://developer.wordpress.org/reference/classes/wp_object_cache/) (whether the default or a drop-in persistent cache), _{eac}KeyValue_ provides L1 (memory) caching _and_ L2 (MySQL) permanence as well as Write-Back (delayed writes) or Write-Through updating for greater efficiency.
+**{eac}KeyValue** Is added to WordPress as a stand-alone, *Must Use* plugin or by including the file in any project or plugin. It provides a simple API for storing and retrieving key-value pairs with any data type. Integrated tightly with the [WordPress object cache](https://developer.wordpress.org/reference/classes/wp_object_cache/) (whether the default or a drop-in persistent cache), _{eac}KeyValue_ provides L1 (memory) caching _and_ L2 (MySQL) permanence as well as Write-Back (delayed writes) or Write-Through (immediate) updating for greater efficiency.
 
-#### Actors SHOULD use:
+#### Actors *SHOULD* use global functions:
 
-     eacKeyValue::put( $key, $value, [$expires] );       // add/update cache value
-     eacKeyValue::put( $key, null );                     // delete cache value
-     $value = eacKeyValue::get( $key );                  // read cache value
+    setKeyValue( $key, $value, [$expires] );            // add/update cache value
+    setKeyValue( $key, null );                          // delete cache value
+    $value = getKeyValue( $key, $default );             // read cache value
 
-#### Actors CAN use:
+    setSiteKeyValue( $key, $value, [$expires] );        // add/update site-wide cache value
+    setSiteKeyValue( $key, null );                      // delete site-wide cache value
+    $value = getSiteKeyValue( $key, $default );         // read site-wide cache value
 
-     $value = eacKeyValue::read( $key );                 // read db value, bypass object cache
-     eacKeyValue::write( $key, $value, [$expires] );     // write (immediate) value to db
-     eacKeyValue::delete( $key );                        // delete (immediate) value from db
-     eacKeyValue::flush();                               // write cache to db (automatic on shutdown)
+#### Actors *CAN* use class methods:
+
+    eacKeyValue::put( $key, $value, [$expires] );       // add/update cache value
+    eacKeyValue::put( $key, null );                     // delete cache value
+    $value = eacKeyValue::get( $key, $default );        // read cache value
+
+    $value = eacKeyValue::read( $key );                 // read db value, bypass object cache
+    eacKeyValue::write( $key, $value, [$expires] );     // write (immediate) value to db
+    eacKeyValue::delete( $key );                        // delete (immediate) value from db
+    eacKeyValue::flush();                               // write cache to db (automatic on shutdown)
 
 #### Method Parameters:
 
-    $key     stringable  The key to store/access
-    $value   mixed|null  data to be stored (should not be serialized).
-    $expires mixed|null  The expiration of the key/value pair.
-                         null            - no expiration
-                         int (<= 1 year) - seconds from now
-                         int ( > 1 year) - timestamp (UTC)
-                         string          - textual datetime, local time (wp_timezone)
-                         DateTime object - converted to utc
-
-#### Global alias functions:
-
-     \putKeyValue() -> \EarthAsylumConsulting\eacKeyValue::put()
-     \getKeyValue() -> \EarthAsylumConsulting\eacKeyValue::get()
+    $key     stringable         The key to store/access
+    $default mixed|callable     default value when $key is not found
+    $value   mixed|null         data to be stored (should not be serialized).
+    $expires mixed|null         The expiration of the key/value pair.
+                                null            - no expiration
+                                int (<= 1 year) - seconds from now
+                                int ( > 1 year) - timestamp (UTC)
+                                string          - textual datetime, local time (wp_timezone)
+                                DateTime object - converted to utc
 
 #### Optional constants:
 
 When scheduling the automatic purge, set the interval to schedule. Must be a valid WP schedule name.
-
-     define( 'EAC_KEYVALUE_PURGE_SCHEDULE', string|false );  // default: 'daily'
-
+    `define( 'EAC_KEYVALUE_PURGE_SCHEDULE', string|false );  // default: 'daily'`
 When scheduling the automatic purge, set the initial start time as timestamp or strtotime.
-
-     define( 'EAC_KEYVALUE_PURGE_START', int|string|false ); // default: 'tomorrow 2:15am'
-
+    `define( 'EAC_KEYVALUE_PURGE_START', int|string|false ); // default: 'tomorrow 2:15am'`
 Set the maximum number of records to hold before a database commit.
- 
-     define( 'EAC_KEYVALUE_AUTO_COMMMIT', int );             //  default: 1,000
-
+    `define( 'EAC_KEYVALUE_AUTO_COMMMIT', int );             //  default: 1,000`
 >   If the installed object cache has the `delayed_writes` property set (`$wp_object_cache->delayed_writes`), this value will override the default auto commit.
 
 - - -
 
 ### {eac}KeyValueCapture
 
-This plugin uses _{eac}KeyValue_ to capture WordPress option or transient API calls to direct them to the Key-Value API.
+This plugin uses _{eac}KeyValue_ to capture individual WordPress option or transient API calls to direct them to the Key-Value API.
 
-##### -- This is experimental and is not without issue or risk. --
++   -- This is experimental and is not without issue or risk. --
 
 #### Options
 
 To capture an option and route it to eacKeyValue:
-
-     eacKeyValueCapture::option_capture('option_name');
-
+    `eacKeyValueCapture::option_capture('option_name');`
 Add 'true' to have the original value saved to cache and deleted from WP options:
-
-     eacKeyValueCapture::option_capture('option_name',true);
-
+    `eacKeyValueCapture::option_capture('option_name',true);`
 To release a captured option (restores to WP options):
-
-     eacKeyValueCapture::option_release('option_name');
+    `eacKeyValueCapture::option_release('option_name');`
 
 #### Transients
 
 To capture a transient and route it to eacKeyValue:
-
-     eacKeyValueCapture::transient_capture('transient_name');
-
+    `eacKeyValueCapture::transient_capture('transient_name');`
 Add 'true' to have the original value saved to cache and deleted from WP options:
-
-     eacKeyValueCapture::transient_capture('transient_name',true);
-
+    `eacKeyValueCapture::transient_capture('transient_name',true);`
 To release a captured transient:
-
-     eacKeyValueCapture::transient_release('transient_name');
+    `eacKeyValueCapture::transient_release('transient_name');`
 
 #### Global alias functions:
 
@@ -116,22 +104,29 @@ To release a captured transient:
 
 #### Notes:
 
-- `add_option()` and `delete_option()` can not be circumvented but are captured to eacKeyValue.
-- If an option doesn't exist in WP options, it won't be deleted from eacKeyValue with `delete_option()`.
-
-- `set_transient()` can not be circumvented (but the called update_option is).
-
-- WP's `$alloptions`/`$nooptions` caching with a persistent object caching may interfere with pushing an option or transient back to the options table when releasing.
-
-- When circumventing functions using "pre" filters, the usual default hooks are not triggered. This could be detrimental to other processes and may be addressed in the future.
++   `add_option()` and `delete_option()` can not be circumvented but are captured to eacKeyValue.
++   If an option doesn't exist in WP options, it won't be deleted from eacKeyValue with `delete_option()`.
++   `set_transient()` can not be circumvented (but the called update_option is).
++   WP's `$alloptions`/`$nooptions` caching with a persistent object caching may interfere with pushing an option or transient back to the options table when releasing.
++   When circumventing functions using "pre" filters, the usual default hooks are not triggered. This could be detrimental to other processes and may be addressed in the future.
 
 - - -
 
 ### Installation
 
 **{eac}KeyValue**
--   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder and add `putKeyValue()` and `getKeyValue()` calls as needed.
++   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder and add `setKeyValue()` and `getKeyValue()` calls as needed.
 
 **{eac}KeyValueCapture**
--   Drop the `eacKeyValueCapture.php` file into your `wp-content/mu-plugins` folder or include it in your `functions.php` and add `capture_option()` or `capture_transient()` calls as needed.
++   Drop the `eacKeyValueCapture.php` file into your `wp-content/mu-plugins` folder or include it in your `functions.php` and add `capture_option()` or `capture_transient()` calls as needed.
+
+- - -
+
+### Changelog
+
+#### Version 1.1.0 – June 7, 2025
+
++   Added multi-site support.
++   Cache eacKeyValue dynamic settings (tables & missed keys).
+
 
