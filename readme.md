@@ -57,7 +57,7 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
                                 int (<= 1 year) - seconds from now
                                 int ( > 1 year) - timestamp (UTC)
                                 string          - textual datetime, local time (wp_timezone)
-                                DateTime object - converted to utc
+                                DateTime object - converted to UTC
 
 #### Optional constants:
 
@@ -74,54 +74,9 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 
 - - -
 
-### {eac}KeyValueCapture
-
-This plugin uses _{eac}KeyValue_ to capture individual WordPress option or transient API calls to direct them to the Key-Value API.
-
-+   -- This is experimental and is not without issue or risk. --
-
-#### Options
-
-+   To capture an option and route it to eacKeyValue:  
-`eacKeyValueCapture::option_capture('option_name');`  
-+   Add 'true' to have the original value saved to cache and deleted from WP options:  
-`eacKeyValueCapture::option_capture('option_name',true);`  
-+   To release a captured option (restores to WP options):  
-`eacKeyValueCapture::option_release('option_name');`  
-
-#### Transients
-
-+   To capture a transient and route it to eacKeyValue:  
-`eacKeyValueCapture::transient_capture('transient_name');`  
-+   Add 'true' to have the original value saved to cache and deleted from WP options:  
-`eacKeyValueCapture::transient_capture('transient_name',true);`  
-+   To release a captured transient:  
-`eacKeyValueCapture::transient_release('transient_name');`  
-
-#### Global alias functions:
-
-     capture_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_capture()
-     release_option() -> \EarthAsylumConsulting\eacKeyValueCapture::option_release()
-     capture_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_capture()
-     release_transient() -> \EarthAsylumConsulting\eacKeyValueCapture::transient_release()
-
-#### Notes:
-
-+   `add_option()` and `delete_option()` can not be circumvented but are captured to eacKeyValue.
-+   If an option doesn't exist in WP options, it won't be deleted from eacKeyValue with `delete_option()`.
-+   `set_transient()` can not be circumvented (but the called update_option is).
-+   WP's `$alloptions`/`$nooptions` caching with a persistent object caching may interfere with pushing an option or transient back to the options table when releasing.
-+   When circumventing functions using "pre" filters, the usual default hooks are not triggered. This could be detrimental to other processes and may be addressed in the future.
-
-- - -
-
 ### Installation
 
-**{eac}KeyValue**
 +   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder and add `setKeyValue()` and `getKeyValue()` calls as needed.
-
-**{eac}KeyValueCapture**
-+   Drop the `eacKeyValueCapture.php` file into your `wp-content/mu-plugins` folder or include it in your `functions.php` and add `capture_option()` or `capture_transient()` calls as needed.
 
 - - -
 
