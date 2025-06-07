@@ -75,10 +75,11 @@ Set the maximum number of records to hold before a database commit.
 
 ### {eac}KeyValueCapture
 
-This plugin uses _{eac}KeyValue_ to capture WordPress options or transients to direct them to the Key-Value API.
+This plugin uses _{eac}KeyValue_ to capture WordPress option or transient API calls to direct them to the Key-Value API.
 
->   This is experimental and is not without risk.
+##### This is experimental and is not without issue or risk.
 
+#### Options
 
 To capture an option and route it to eacKeyValue:
 
@@ -91,6 +92,8 @@ Add 'true' to have the original value saved to cache and deleted from WP options
 To release a captured option (restores to WP options):
 
      eacKeyValueCapture::option_release('option_name');
+
+#### Transients
 
 To capture a transient and route it to eacKeyValue:
 
@@ -127,7 +130,7 @@ Notes:
 ### Installation
 
 **{eac}KeyValue**
--   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder.
+-   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder and add `putKeyValue()` and `getKeyValue()` calls as needed.
 
 **{eac}KeyValueCapture**
 -   Drop the `eacKeyValueCapture.php` file into your `wp-content/mu-plugins` folder or include it in your `functions.php` and add `capture_option()` or `capture_transient()` calls as needed.
