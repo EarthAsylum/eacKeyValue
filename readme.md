@@ -24,7 +24,7 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 
 ### Description
 
-**{eac}KeyValue** Is added to WordPress as a stand-alone, *Must Use* plugin or by including the file in any project or plugin. It provides a simple API for storing and retrieving key-value pairs with any data type. Integrated tightly with the [WordPress object cache](https://developer.wordpress.org/reference/classes/wp_object_cache/) (whether the default or a drop-in persistent cache), _{eac}KeyValue_ provides L1 (memory) caching _and_ L2 (MySQL) permanence as well as Write-Back (delayed writes) or Write-Through (immediate) updating for greater efficiency.
+**{eac}KeyValue** Is added to WordPress as a stand-alone, *Must Use* plugin or by including the file in any project or plugin. It provides a simple API for storing and retrieving key-value pairs with any data type. Integrated tightly with the [WordPress object cache](https://developer.wordpress.org/reference/classes/wp_object_cache/) (whether the default or a drop-in persistent cache), _{eac}KeyValue_ provides L1 (memory) caching _and_ L2 (MySQL) permanence as well as Write-Back (delayed) or Write-Through (immediate) updating for greater efficiency.
 
 #### Actors *SHOULD* use global functions:
 
@@ -61,12 +61,15 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 
 #### Optional constants:
 
-When scheduling the automatic purge, set the interval to schedule. Must be a valid WP schedule name.
-    `define( 'EAC_KEYVALUE_PURGE_SCHEDULE', string|false );  // default: 'daily'`
-When scheduling the automatic purge, set the initial start time as timestamp or strtotime.
-    `define( 'EAC_KEYVALUE_PURGE_START', int|string|false ); // default: 'tomorrow 2:15am'`
-Set the maximum number of records to hold before a database commit.
-    `define( 'EAC_KEYVALUE_AUTO_COMMMIT', int );             //  default: 1,000`
++   When scheduling the automatic purge, set the interval to schedule. Must be a valid WP schedule name.  
+`define( 'EAC_KEYVALUE_PURGE_SCHEDULE', string|false );  // default: 'daily'`  
+
++   When scheduling the automatic purge, set the initial start time as timestamp or strtotime.  
+`define( 'EAC_KEYVALUE_PURGE_START', int|string|false ); // default: 'tomorrow 2:15am'`  
+
++   Set the maximum number of records to hold before a database commit.  
+`define( 'EAC_KEYVALUE_AUTO_COMMMIT', int );             //  default: 1,000`  
+
 >   If the installed object cache has the `delayed_writes` property set (`$wp_object_cache->delayed_writes`), this value will override the default auto commit.
 
 - - -
@@ -79,21 +82,21 @@ This plugin uses _{eac}KeyValue_ to capture individual WordPress option or trans
 
 #### Options
 
-To capture an option and route it to eacKeyValue:
-    `eacKeyValueCapture::option_capture('option_name');`
-Add 'true' to have the original value saved to cache and deleted from WP options:
-    `eacKeyValueCapture::option_capture('option_name',true);`
-To release a captured option (restores to WP options):
-    `eacKeyValueCapture::option_release('option_name');`
++   To capture an option and route it to eacKeyValue:  
+`eacKeyValueCapture::option_capture('option_name');`  
++   Add 'true' to have the original value saved to cache and deleted from WP options:  
+`eacKeyValueCapture::option_capture('option_name',true);`  
++   To release a captured option (restores to WP options):  
+`eacKeyValueCapture::option_release('option_name');`  
 
 #### Transients
 
-To capture a transient and route it to eacKeyValue:
-    `eacKeyValueCapture::transient_capture('transient_name');`
-Add 'true' to have the original value saved to cache and deleted from WP options:
-    `eacKeyValueCapture::transient_capture('transient_name',true);`
-To release a captured transient:
-    `eacKeyValueCapture::transient_release('transient_name');`
++   To capture a transient and route it to eacKeyValue:  
+`eacKeyValueCapture::transient_capture('transient_name');`  
++   Add 'true' to have the original value saved to cache and deleted from WP options:  
+`eacKeyValueCapture::transient_capture('transient_name',true);`  
++   To release a captured transient:  
+`eacKeyValueCapture::transient_release('transient_name');`  
 
 #### Global alias functions:
 
