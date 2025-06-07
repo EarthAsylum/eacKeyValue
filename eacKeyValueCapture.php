@@ -52,8 +52,6 @@
  *
  *      add_option() and delete_option() can not be circumvented but are captured to eacKeyValue.
  *      if an option doesn't exist in WP options, it won't be deleted from eacKeyValue.
- *      Since we circumvent update_option but not add_option,
- *          an option that was updated but never added, can't be deleted from eacKeyValue.
  *
  *      set_transient can not be circumvented (but the called update_option is).
  *

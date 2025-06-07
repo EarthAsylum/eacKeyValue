@@ -71,12 +71,13 @@ Set the maximum number of records to hold before a database commit.
 
 >   If the installed object cache has the `delayed_writes` property set (`$wp_object_cache->delayed_writes`), this value will override the default auto commit.
 
+- - -
 
 ### {eac}KeyValueCapture
 
-This plugin uses _{eac}KeyValue_ to capture WordPress options and transients to direct them to the key-value API.
+This plugin uses _{eac}KeyValue_ to capture WordPress options or transients to direct them to the Key-Value API.
 
-_This is experimental_
+>   This is experimental and is not without risk.
 
 
 To capture an option and route it to eacKeyValue:
@@ -114,7 +115,6 @@ Notes:
 
 - `add_option()` and `delete_option()` can not be circumvented but are captured to eacKeyValue.
 - If an option doesn't exist in WP options, it won't be deleted from eacKeyValue with `delete_option()`.
-- Since we circumvent `update_option()` but not `add_option()`, an option that was updated but never added, can't be deleted from eacKeyValue.
 
 - `set_transient()` can not be circumvented (but the called update_option is).
 
@@ -122,6 +122,7 @@ Notes:
 
 - When circumventing functions using "pre" filters, the usual default hooks are not triggered. This could be detrimental to other processes and may be addressed in the future.
 
+- - -
 
 ### Installation
 
