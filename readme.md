@@ -62,7 +62,7 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
     setKeyValue( $key, $value, [$expires], "sitewide");
     getKeyValue( $key, $default, "sitewide");
 
-`transient` - Treat this key/value as transient. When using an external object cache, the key/value is not stored in the database (assuming that the object cache stores it).
+`transient` - Treat this key/value as transient. When using an external object cache, the key/value is not stored in the key-value table (assuming that the object cache stores it). `transient` has no effect without an external object cache.
 
     setKeyValue( $key, $value, [$expires], "transient");
 
@@ -93,6 +93,11 @@ $value = getKeyValue( 'my_permanent_key' );
 setKeyValue( 'my_temporary_key', $value, HOUR_IN_SECONDS );
 setKeyValue( 'my_temporary_key', $value, time() + HOUR_IN_SECONDS );
 setKeyValue( 'my_temporary_key', $value, '1 hour' );
+```
+
++   Set a site-wide, transient key/value:
+```php
+setKeyValue('my_transient_key', $value, HOUR_IN_SECONDS, 'transient', 'sitewide');
 ```
 
 +   Retrieve a key with a default value:
@@ -143,5 +148,5 @@ setKeyValue( 'my_permanent_key', null );
 
 +   Added multi-site support.
 +   Support variable arguments.
-+   Added transient' option.
++   Added 'transient' option.
 +   Cache eacKeyValue dynamic settings (tables & missed keys).
