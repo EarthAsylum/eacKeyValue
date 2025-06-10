@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        07-Jun-2025
+ * Last Updated:        10-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -31,50 +31,8 @@
  *
  * Developers may include this in their project.
  *
- * *****
- *
-    #### Actors *SHOULD* use global functions:
-
-        setKeyValue( $key, $value, [$expires] );            // add/update cache value
-        setKeyValue( $key, null );                          // delete cache value
-        $value = getKeyValue( $key, $default );             // read cache value
-
-        setSiteKeyValue( $key, $value, [$expires] );        // add/update site-wide cache value
-        setSiteKeyValue( $key, null );                      // delete site-wide cache value
-        $value = getSiteKeyValue( $key, $default );         // read site-wide cache value
-
-    #### Actors *CAN* use class methods:
-
-        eacKeyValue::put( $key, $value, [$expires] );       // add/update cache value
-        eacKeyValue::put( $key, null );                     // delete cache value
-        $value = eacKeyValue::get( $key, $default );        // read cache value
-
-        $value = eacKeyValue::read( $key );                 // read db value, bypass object cache
-        eacKeyValue::write( $key, $value, [$expires] );     // write (immediate) value to db
-        eacKeyValue::delete( $key );                        // delete (immediate) value from db
-        eacKeyValue::flush();                               // write cache to db (automatic on shutdown)
-
-    #### Method Parameters:
-
-        $key     stringable         The key to store/access
-        $default mixed|callable     default value when $key is not found
-        $value   mixed|null         data to be stored (should not be serialized).
-        $expires mixed|null         The expiration of the key/value pair.
-                                    null            - no expiration
-                                    int (<= 1 year) - seconds from now
-                                    int ( > 1 year) - timestamp (UTC)
-                                    string          - textual datetime, local time (wp_timezone)
-                                    DateTime object - converted to utc
-
-    #### Optional constants:
-
-    When scheduling the automatic purge, set the interval to schedule. Must be a valid WP schedule name.
-        `define( 'EAC_KEYVALUE_PURGE_SCHEDULE', string|false );  // default: 'daily'`
-    When scheduling the automatic purge, set the initial start time as timestamp or strtotime.
-        `define( 'EAC_KEYVALUE_PURGE_START', int|string|false ); // default: 'tomorrow 2:15am'`
-    Set the maximum number of records to hold before a database commit.
-        `define( 'EAC_KEYVALUE_AUTO_COMMMIT', int );             //  default: 1,000`
-    >   If the installed object cache has the `delayed_writes` property set (`$wp_object_cache->delayed_writes`), this value will override the default auto commit.
+ * see the `readme.md` file for details.
+ * https://github.com/EarthAsylum/eacKeyValue/blob/main/readme.md
  *
  * ***** */
 
@@ -144,29 +102,44 @@ namespace EarthAsylumConsulting
 
 
             /**
-             * Maybe optional init method.
-             * add_action('init', ['\EarthAsylumConsulting\eacKeyValue','init']);
+             * Initialize
              */
-            public static function init()
+            public static function factory()
             {
                 global $wp_object_cache;
 
-                wp_cache_add_global_groups(self::CACHE_ID.'_site');
+                // global and pre-fetch groups (wp-object-cache)
+                wp_cache_add_global_groups([
+                    self::CACHE_ID.'_site',
+                    self::CACHE_ID.'_site_prefetch'
+                ]);
+                if (wp_cache_supports('prefetch_groups')) {
+                    wp_cache_add_prefetch_groups([
+                        self::CACHE_ID.'_prefetch',
+                        self::CACHE_ID.'_site_prefetch'
+                    ]);
+                } else
+                if (wp_cache_supports('get_group')) {
+                    wp_cache_get_group(self::CACHE_ID.'_prefetch');
+                    wp_cache_get_group(self::CACHE_ID.'_site_prefetch');
+                }
 
+                // max records before triggering auto-commit
                 if (defined('EAC_KEYVALUE_AUTO_COMMMIT') && is_int(EAC_KEYVALUE_AUTO_COMMMIT)) {
                     self::$auto_commit      = EAC_KEYVALUE_AUTO_COMMMIT;
                 } else if (isset($wp_object_cache->delayed_writes) && is_int($wp_object_cache->delayed_writes)) {
                     self::$auto_commit      = $wp_object_cache->delayed_writes;     // {eac}ObjectCache
                 }
 
+                // setting automatic (wp-cron) purging
                 if (defined('EAC_KEYVALUE_PURGE_SCHEDULE')) {
                     self::$purge_schedule   = EAC_KEYVALUE_PURGE_SCHEDULE;
                 }
-
                 if (defined('EAC_KEYVALUE_PURGE_START')) {
                     self::$purge_initial    = self::expires(EAC_KEYVALUE_PURGE_START);
                 }
 
+                // pre-load known tables and missed keys
                 if ($parameters = wp_cache_get(__CLASS__,self::CACHE_ID)) {
                     if (isset($parameters['site_tables'])) {
                         self::$site_tables = $parameters['site_tables'];
@@ -184,12 +157,13 @@ namespace EarthAsylumConsulting
              *
              * @param string            $key
              * @param mixed|callable    $default
-             * @param bool|int          $_site set for site-wide key/value
+             * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
              * @return mixed|null       $value
              */
-            public static function get(string|int|\Stringable $key, $default=null, $_site=false)
+            public static function get(string|int|\Stringable $key, $default=null, ...$args)
             {
-                $key = self::validate_site_key($key,$_site);
+                // key, expires, transient, prefetch, sitewide, cache_id
+                extract(self::parse_options($key,...$args));
 
                 if (array_key_exists($key,self::$missed_keys[self::$site_id]))
                 {
@@ -198,16 +172,23 @@ namespace EarthAsylumConsulting
                 }
                 else
                 {
-                    // check the object cache
-                    $result = wp_cache_get( $key, self::$cache_id, false, $found );
-                    // check the database
-                    if (!$found) {
+                    while (true) {
+                        // check the object cache - maybe prefetch group
+                        $result = wp_cache_get( $key, self::$cache_id.'_prefetch', false, $found );
+                        if ($found) break;
+                        // check the object cache
+                        $result = wp_cache_get( $key, self::$cache_id, false, $found );
+                        if ($found) break;
+                        // check the database
                         $result  = self::read($key,true);
+                        break;
                     }
                 }
 
                 if (is_null($result))
                 {
+                    // mark as missing
+                    self::mark_commit_key($key,null);
                     $result = (is_callable($default))
                         ? call_user_func($default,$key)
                         : $default;
@@ -221,31 +202,33 @@ namespace EarthAsylumConsulting
              *
              * @param string        $key
              * @param bool          $toCache save to object cache after read
-             * @param bool|int      $_site set for site-wide key/value
+             * @param string[]      $args - 'transient', 'prefeth', 'sitewide'
              * @return mixed|null   $value
              */
-            public static function read(string|int|\Stringable $key, $toCache=false, $_site=false)
+            public static function read(string|int|\Stringable $key, $toCache=false, ...$args)
             {
                 global $wpdb;
                 static $query = null;
 
                 if (empty($query)) {
-                    $query = "SELECT `value`,`expires` FROM `%s` ".
+                    $query = "SELECT `value`,`expires` FROM `%i` ".
                              "WHERE `key` = '%s' AND (`expires` = '%s' OR `expires` >= '%s') LIMIT 1";
                 }
 
-                $key = self::validate_site_key($key,$_site);
+                // key, expires, transient, prefetch, sitewide, cache_id
+                extract(self::parse_options($key,...$args));
 
                 if ($result = $wpdb->get_results(
-                        sprintf($query,self::get_table(),$key,self::NULL_DATE,self::expires()) )
+                        $wpdb->prepare($query,self::get_table(),$key,self::NULL_DATE,self::expires()) )
                 ) {
-                    $value   = maybe_unserialize($result[0]->value);
+                    $value  = maybe_unserialize($result[0]->value);
                     if ($toCache) {
                         $seconds = ($result[0]->expires != self::NULL_DATE)
                                     ? strtotime($expires) - strtotime('now')
                                     : 0;
-                        wp_cache_set( $key, $value, self::$cache_id, $seconds );
+                        wp_cache_set( $key, $value, $cache_id, $seconds );
                     }
+                    unset(self::$missed_keys[self::$site_id][$key]);
                     return $value;
                 }
 
@@ -258,29 +241,33 @@ namespace EarthAsylumConsulting
              * @param string        $key
              * @param mixed         $value value or null
              * @param mixed         $expires (timestamp, seconds, datetime, string)
-             * @param bool|int      $_site set for site-wide key/value
-             * @return mixed        $value
+             * @param string[]      $args - 'transient', 'prefeth', 'sitewide'
+             * @return mixed        true
              */
-            public static function put(string|int|\Stringable $key, $value, $expires=null, $_site=false)
+            public static function put(string|int|\Stringable $key, $value, $expires=null, ...$args)
             {
-                $key        = self::validate_site_key($key,$_site);
-                $expires    = self::expires($expires);
+                // key, expires, transient, prefetch, sitewide, cache_id
+                extract(self::parse_options($key,$expires,...$args));
 
                 if (is_null($value) || ($expires && $expires <= self::expires()))
                 {
-                    wp_cache_delete( $key, self::$cache_id );
-                    // mark for deletion
-                    self::mark_commit_key($key,false);
+                    wp_cache_delete( $key, $cache_id );
+                    if (!$transient || !wp_using_ext_object_cache()) {
+                        // mark for deletion
+                        self::mark_commit_key($key,false);
+                    }
                 }
                 else
                 {
                     $seconds = (is_string($expires)) ? strtotime($expires) - strtotime('now') : 0;
-                    wp_cache_set( $key, $value, self::$cache_id, $seconds );
-                    // mark for update
-                    self::mark_commit_key($key,$expires ?? true);
+                    wp_cache_set( $key, $value, $cache_id, $seconds );
+                    if (!$transient || !wp_using_ext_object_cache()) {
+                        // mark for update
+                        self::mark_commit_key($key,$expires ?? true);
+                    }
                 }
 
-                return $value;
+                return true;
             }
 
             /**
@@ -289,24 +276,24 @@ namespace EarthAsylumConsulting
              * @param string        $key
              * @param mixed         $value (null = get from cache)
              * @param mixed         $expires (timestamp, seconds, datetime, string)
-             * @param bool|int      $_site set for site-wide key/value
+             * @param string[]      $args - 'transient', 'prefeth', 'sitewide'
              * @return int          rows affected
              */
-            public static function write(string|int|\Stringable $key, $value=null, $expires=null, $_site=false)
+            public static function write(string|int|\Stringable $key, $value=null, $expires=null, ...$args)
             {
                 global $wpdb;
                 static $query = null;
 
                 if (empty($query)) {
-                    $query = "INSERT INTO `%s` (`key`, `value`, `expires`) VALUES ('%s', '%s', '%s') " .
+                    $query = "INSERT INTO `%i` (`key`, `value`, `expires`) VALUES ('%s', '%s', '%s') " .
                              "ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `expires` = VALUES(`expires`);";
                 }
 
-                $key        = self::validate_site_key($key,$_site);
-                $expires    = self::expires($expires) ?? '';
+                // key, expires, transient, prefetch, sitewide, cache_id
+                extract(self::parse_options($key,$expires,...$args));
 
                 if (is_null($value)) {
-                    $value  = wp_cache_get( $key, self::$cache_id, false, $found );
+                    $value  = wp_cache_get( $key, $cache_id, false, $found );
                     if (!$found) $value = null;
                 } else if (is_object($value)) {
                     $value  = clone $value;
@@ -315,13 +302,13 @@ namespace EarthAsylumConsulting
                 if (!is_null($value))
                 {
                     $result = $wpdb->query(
-                        sprintf($query,self::get_table(),$key,maybe_serialize($value),$expires)
+                        $wpdb->prepare($query,self::get_table(),$key,maybe_serialize($value),(string)$expires)
                     );
                     if ($result === false) {
                         self::is_error($wpdb->last_error,__FUNCTION__);
-                    } else {
+                    } else { // update cache/expires
                         $seconds = (!empty($expires)) ? strtotime($expires) - strtotime('now') : 0;
-                        wp_cache_set( $key, $value, self::$cache_id, $seconds );
+                        wp_cache_set( $key, $value, $cache_id, $seconds );
                     }
                 }
 
@@ -334,22 +321,19 @@ namespace EarthAsylumConsulting
              * Delete cache value
              *
              * @param string        $key
-             * @param bool|int      $_site set for site-wide key/value
+             * @param string[]      $args - 'transient', 'prefeth', 'sitewide'
              * @return int          rows affected
              */
-            public static function delete(string|int|\Stringable $key, $_site=false)
+            public static function delete(string|int|\Stringable $key, ...$args)
             {
                 global $wpdb;
-                static $query = null;
 
-                if (empty($query)) {
-                    $query = "DELETE FROM `%s` WHERE `key` = '%s'";
-                }
+                // key, expires, transient, prefetch, sitewide, cache_id
+                extract(self::parse_options($key,...$args));
 
-                $key = self::validate_site_key($key,$_site);
-
-                wp_cache_delete( $key, self::$cache_id );
-                $result = $wpdb->query( sprintf($query,self::get_table(),$key) );
+                wp_cache_delete( $key, $cache_id.'_prefetch' );
+                wp_cache_delete( $key, $cache_id );
+                $result = $wpdb->delete(self::get_table(),['key' => $key]);
 
                 if ($result === false) {
                     self::is_error($wpdb->last_error,__FUNCTION__);
@@ -360,6 +344,59 @@ namespace EarthAsylumConsulting
                 return $result;
             }
 
+            /**
+             * Parse options
+             *
+             * @param string        $key
+             * @param string[]      $args
+             *                      - $expires (timestamp, seconds, datetime, string)
+             *                      - 'transient', 'prefeth', 'sitewide'
+             * @return array        ['key'=>,'expires'=>,'prefetch'=>,'sitewide'=>, 'cache_id'=>]
+             */
+            protected static function parse_options($key, ...$args )
+            {
+                $return = [
+                    'key'           => trim( (string)$key ),
+                    'expires'       => null,
+                    'transient'     => false,
+                    'prefetch'      => false,
+                    'sitewide'      => false,
+                    'cache_id'      => null,
+                ];
+
+                if (empty($return['key'])) {
+                    self::is_error('invalid key-value key',__FUNCTION__);
+                }
+
+                foreach ($args as $options)
+                {
+                    if (is_bool($options) && $options) {                    // only bool option is prefetch
+                        $return['prefetch'] = $options;
+                    } else if (is_int($options) || is_object($options)) {   // must be expires secs,time,datetime
+                        $return['expires'] = self::expires($options);
+                    } else if (is_string($options)) {
+                        if ($options == 'transient') {
+                            $return['transient'] = true;
+                        } else if ($options == 'prefetch') {
+                            $return['prefetch'] = true;
+                        } else if ($options == 'sitewide') {
+                            $return['sitewide'] = true;
+                        } else if ($expires = self::expires($options)) {    // maybe expires string
+                            $return['expires'] = $expires;
+                        }
+                    } else if (is_array($options)) {                        // array of options
+                        $return = array_merge($return,$options);
+                    }
+                }
+
+                self::set_site_id($return['sitewide']);
+
+                $return['cache_id'] = ($return['prefetch'])
+                    ? self::$cache_id . '_prefetch'
+                    : self::$cache_id;
+
+                return $return;
+            }
 
             /**
              * Cache list of missing keys of keys to be updated
@@ -386,11 +423,11 @@ namespace EarthAsylumConsulting
                 else                                    // to be committed
                 {
                     self::$commit_keys[self::$site_id][$key] = $value;
-                    if ($value) {	// to update
-	                    unset(self::$missed_keys[self::$site_id][$key]);
-	                } else {		// to delete
-	                    self::$missed_keys[self::$site_id][$key] = null;
-	                }
+                    if ($value) {   // to update
+                        unset(self::$missed_keys[self::$site_id][$key]);
+                    } else {        // to delete
+                        self::$missed_keys[self::$site_id][$key] = null;
+                    }
 
                     $count = count(self::$commit_keys,COUNT_RECURSIVE) - count(self::$commit_keys);
                     if ($count >= self::$auto_commit) {
@@ -429,23 +466,18 @@ namespace EarthAsylumConsulting
              */
             protected static function commit()
             {
+                foreach (self::$commit_keys as $site => $commit_keys)
+                {
+                    self::set_site_id($site);
+                    self::commit_site($commit_keys);
+                }
+                self::$commit_keys = [];
+
                 $parameters = [
                     'site_tables'   => self::$site_tables,
                     'missed_keys'   => self::$missed_keys,
                 ];
                 wp_cache_set(__CLASS__,$parameters,self::CACHE_ID);
-
-                foreach (self::$commit_keys as $site => $commit_keys)
-                {
-                    self::$site_id = $site;
-                    if (is_multisite()) {
-                        self::$cache_id = (self::$site_id > 0)
-                            ? self::CACHE_ID
-                            : self::CACHE_ID.'_site';
-                    }
-                    self::commit_site($commit_keys);
-                }
-                self::$commit_keys = [];
             }
 
             /**
@@ -460,11 +492,15 @@ namespace EarthAsylumConsulting
                 {
                     if ($isCached === false) {
                         $toDelete[] = [
-                            $key
+                            esc_sql($key)
                         ];
                     } else if (!is_null($isCached)) {
                         $toWrite[] = [
-                            $key, maybe_serialize(wp_cache_get( $key, self::$cache_id )), (is_bool($isCached) ? '' : $isCached)
+                            esc_sql($key),
+                            maybe_serialize(
+                                wp_cache_get($key,self::$cache_id.'_prefetch' ) ?: wp_cache_get($key,self::$cache_id )
+                            ),
+                            (is_bool($isCached) ? '' : $isCached)
                         ];
                     }
                 }
@@ -486,36 +522,17 @@ namespace EarthAsylumConsulting
             }
 
             /**
-             * validate key, set site
+             * multisite - set site id (and cache id)
              *
-             * @param string        $key
-             * @param bool|int      $_site set for site-wide key/value
-             * @return string       maybe sets site, returns key
+             * @param bool|int  $sitewide or site id
+             * @return int      site id
              */
-            protected static function validate_site_key( string|int|\Stringable $key, $_site=false )
-            {
-                $key = trim( (string)$key );
-                if (empty($key)) {
-                    self::is_error('invalid key-value key',__FUNCTION__);
-                }
-
-                self::set_site_id($_site);
-
-                return $key;
-            }
-
-            /**
-             * set site
-             *
-             * @param bool|int      $_site set for site-wide/gllobal
-             * @return int          site id
-             */
-            protected static function set_site_id( $_site=false )
+            protected static function set_site_id( $sitewide=false )
             {
                 if (is_multisite())
                 {
-                    self::$site_id = ($_site !== false)
-                        ? ( (is_int($_site)) ? $_site : 0 )
+                    self::$site_id = ($sitewide !== false)
+                        ? ( (is_int($sitewide)) ? $sitewide : 0 )
                         : get_current_blog_id();
 
                     self::$cache_id = (self::$site_id > 0)
@@ -647,7 +664,7 @@ namespace EarthAsylumConsulting
                 foreach ($sites as $site => $table)
                 {
                     $result = $wpdb->query(sprintf(
-                        "DELETE FROM `%s` WHERE `expires` > '%s' AND `expires` < %s",
+                        "DELETE FROM `%s` WHERE `expires` > '%s' AND `expires` < '%s'",
                         $table, self::NULL_DATE, self::expires() )
                     );
 
@@ -671,6 +688,10 @@ namespace EarthAsylumConsulting
                 throw new \Exception($source.': '.$message);
             }
         } // class
+        /*
+         * Initialize the class
+         */
+        eacKeyValue::factory();
     } // class_exists
 } // namespace EarthAsylumConsulting
 
@@ -679,24 +700,88 @@ namespace  // global scope
 {
     if (! function_exists('getKeyValue'))
     {
-        function getKeyValue($key, $default=null) {
-            return \EarthAsylumConsulting\eacKeyValue::get($key, $default);
-        }
-        function getSiteKeyValue($key, $default=null) {
-            return \EarthAsylumConsulting\eacKeyValue::get($key, $default, true);
+        /**
+         * Get a key-value pair
+         *
+         * @param Stringable        $key
+         * @param mixed|callable    $default (if key is not found)
+         * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+         * @return mixed            unserialized value
+         */
+        function getKeyValue($key, $default=null, ...$args)
+        {
+            return \EarthAsylumConsulting\eacKeyValue::get($key, $default, ...$args);
         }
     }
+
     if (! function_exists('setKeyValue'))
     {
-        function setKeyValue($key, $value, $expires=null) {
-            return \EarthAsylumConsulting\eacKeyValue::put($key, $value, $expires);
-        }
-        function setSiteKeyValue($key, $value, $expires=null) {
-            return \EarthAsylumConsulting\eacKeyValue::put($key, $value, $expires, true);
+        /**
+         * Set a key-value pair
+         *
+         * @param Stringable        $key
+         * @param mixed             $value
+         * @param mixed             $expires (timestamp, seconds, datetime, string)
+         * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+         * @return bool             true
+         */
+        function setKeyValue($key, $value, $expires=null, ...$args)
+        {
+            return \EarthAsylumConsulting\eacKeyValue::put($key, $value, $expires, ...$args);
         }
     }
-    if (!has_action('init', ['\EarthAsylumConsulting\eacKeyValue','init']))
+
+    /*
+     * simple tests/examples
+     */
+    add_action('admin_init',function()
     {
-         add_action('init', ['\EarthAsylumConsulting\eacKeyValue','init']);
-    }
+        // get/set a key
+        if ($value = getKeyValue('key_value_test')) {
+            echo "<div class='notice'><pre>get key_value_test ".var_export($value,true)."</pre></div>";
+            setKeyValue('key_value_test',null);
+        } else {
+            setKeyValue('key_value_test',wp_date('c'),HOUR_IN_SECONDS);
+        }
+
+        // get/set a key using a callback
+		$value = getKeyValue( 'key_value_callback', function($key)
+			{
+				setKeyValue( $key, wp_date('c'), MINUTE_IN_SECONDS );
+				return $value;
+			}
+		);
+
+        // get/set a transient key
+        if ($value = getKeyValue('key_value_transient')) {
+            echo "<div class='notice'><pre>get key_value_transient ".var_export($value,true)."</pre></div>";
+            setKeyValue('key_value_transient',null);
+        } else {
+            setKeyValue('key_value_transient',wp_date('c'),HOUR_IN_SECONDS,'transient');
+        }
+
+        // get/set a prefetch key
+        if ($value = getKeyValue('key_value_prefetch')) {
+            echo "<div class='notice'><pre>get key_value_prefetch ".var_export($value,true)."</pre></div>";
+            setKeyValue('key_value_prefetch',null);
+        } else {
+            setKeyValue('key_value_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch');
+        }
+
+        // get/set a sitewide key
+        if ($value = getKeyValue('key_value_site',null,'sitewide')) {
+            echo "<div class='notice'><pre>get key_value_site ".var_export($value,true)."</pre></div>";
+            setKeyValue('key_value_site',null,'sitewide');
+        } else {
+            setKeyValue('key_value_site',wp_date('c'),HOUR_IN_SECONDS,'sitewide');
+        }
+
+        // get/set a sitewide-prefetch key
+        if ($value = getKeyValue('key_value_site_prefetch',null,'sitewide')) {
+            echo "<div class='notice'><pre>get key_value_site_prefetch ".var_export($value,true)."</pre></div>";
+            setKeyValue('key_value_site_prefetch',null,'sitewide');
+        } else {
+            setKeyValue('key_value_site_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch','sitewide');
+        }
+    });
 }

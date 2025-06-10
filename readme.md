@@ -8,7 +8,7 @@
 Plugin URI:             https://github.com/EarthAsylum/eacKeyValue  
 Author:                 [EarthAsylum Consulting](https://www.earthasylum.com)  
 Stable tag:             1.1.0  
-Last Updated:           07-Jun-2025  
+Last Updated:           09-Jun-2025  
 Requires at least:      5.8  
 Tested up to:           6.8  
 Requires PHP:           8.1  
@@ -30,19 +30,15 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 
     setKeyValue( $key, $value, [$expires] );            // add/update cache value
     setKeyValue( $key, null );                          // delete cache value
-    $value = getKeyValue( $key, $default );             // read cache value
-
-    setSiteKeyValue( $key, $value, [$expires] );        // add/update site-wide cache value
-    setSiteKeyValue( $key, null );                      // delete site-wide cache value
-    $value = getSiteKeyValue( $key, $default );         // read site-wide cache value
+    $value = getKeyValue( $key, [$default] );           // read cache value
 
 #### Actors *CAN* use class methods:
 
     eacKeyValue::put( $key, $value, [$expires] );       // add/update cache value
     eacKeyValue::put( $key, null );                     // delete cache value
-    $value = eacKeyValue::get( $key, $default );        // read cache value
+    $value = eacKeyValue::get( $key, [$default] );      // read cache value
 
-    $value = eacKeyValue::read( $key );                 // read db value, bypass object cache
+    $value = eacKeyValue::read( $key, [$toCache] );     // read db value, bypass object cache [and add to cache]
     eacKeyValue::write( $key, $value, [$expires] );     // write (immediate) value to db
     eacKeyValue::delete( $key );                        // delete (immediate) value from db
     eacKeyValue::flush();                               // write cache to db (automatic on shutdown)
@@ -59,6 +55,27 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
                                 string          - textual datetime, local time (wp_timezone)
                                 DateTime object - converted to UTC
 
+#### Optional Parameters
+
+`sitewide` - For multisite, indicates this is a site-wide key/value. Site-wide items apply to all blogs in a multisite environment.
+
+    setKeyValue( $key, $value, [$expires], "sitewide");
+    getKeyValue( $key, $default, "sitewide");
+
+`transient` - Treat this key/value as transient. When using an external object cache, the key/value is not stored in the database (assuming that the object cache stores it).
+
+    setKeyValue( $key, $value, [$expires], "transient");
+
+`prefetch` - If the object cache supports pre-fetching, indicates this should be a pre-fetched key/value. Pre-fetched items are loaded and cached in a single operation at the start of a request.
+
+    setKeyValue( $key, $value, [$expires], "prefetch");
+    
+Optional parameters may be combined in any order.
+
+    setKeyValue( $key, $value, [$expires], "sitewide", "transient");
+    setKeyValue( $key, $value, [$expires], "prefetch", "sitewide");
+    setKeyValue( $key, $value, [$expires], "transient", "prefetch", "sitewide");
+    
 #### Examples:
 
 +   Store a permanent key/value:
@@ -73,9 +90,9 @@ $value = getKeyValue( 'my_permanent_key' );
 
 +   Store a key/value with an expiration:
 ```php
-setKeyValue( 'my_transient_key', $value, HOUR_IN_SECONDS );
-setKeyValue( 'my_transient_key', $value, time() + HOUR_IN_SECONDS );
-setKeyValue( 'my_transient_key', $value, '1 hour' );
+setKeyValue( 'my_temporary_key', $value, HOUR_IN_SECONDS );
+setKeyValue( 'my_temporary_key', $value, time() + HOUR_IN_SECONDS );
+setKeyValue( 'my_temporary_key', $value, '1 hour' );
 ```
 
 +   Retrieve a key with a default value:
@@ -122,7 +139,9 @@ setKeyValue( 'my_permanent_key', null );
 
 ### Changelog
 
-#### Version 1.1.0 – June 7, 2025
+#### Version 1.1.0 – June 10, 2025
 
 +   Added multi-site support.
++   Support variable arguments.
++   Added transient' option.
 +   Cache eacKeyValue dynamic settings (tables & missed keys).
