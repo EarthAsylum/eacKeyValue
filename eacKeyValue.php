@@ -168,7 +168,7 @@ namespace EarthAsylumConsulting
                 if (array_key_exists($key,self::$missed_keys[self::$site_id]))
                 {
                     // we already know the key doesn't exist
-                    $result = null;
+                 //   $result = null;
                 }
                 else
                 {
@@ -180,6 +180,7 @@ namespace EarthAsylumConsulting
                         $result = wp_cache_get( $key, self::$cache_id, false, $found );
                         if ($found) break;
                         // check the database
+                        $result = null;
 	                    if (!$transient || !wp_using_ext_object_cache()) {
     	                    $result  = self::read($key,true);
     	                }
@@ -192,7 +193,7 @@ namespace EarthAsylumConsulting
                     // mark as missing
                     self::mark_commit_key($key,null);
                     $result = (is_callable($default))
-                        ? call_user_func($default,$key)
+                        ? call_user_func($default,$key,...$args)
                         : $default;
                 }
 
