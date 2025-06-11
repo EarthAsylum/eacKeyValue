@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        10-Jun-2025
+ * Last Updated:        11-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -180,7 +180,9 @@ namespace EarthAsylumConsulting
                         $result = wp_cache_get( $key, self::$cache_id, false, $found );
                         if ($found) break;
                         // check the database
-                        $result  = self::read($key,true);
+	                    if (!$transient || !wp_using_ext_object_cache()) {
+    	                    $result  = self::read($key,true);
+    	                }
                         break;
                     }
                 }
@@ -734,6 +736,8 @@ namespace  // global scope
     /*
      * simple tests/examples
      */
+
+    /*
     add_action('admin_init',function()
     {
         // get/set a key
@@ -753,7 +757,7 @@ namespace  // global scope
 		);
 
         // get/set a transient key
-        if ($value = getKeyValue('key_value_transient')) {
+        if ($value = getKeyValue('key_value_transient','transient')) {
             echo "<div class='notice'><pre>get key_value_transient ".var_export($value,true)."</pre></div>";
             setKeyValue('key_value_transient',null);
         } else {
@@ -784,4 +788,5 @@ namespace  // global scope
             setKeyValue('key_value_site_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch','sitewide');
         }
     });
+    */
 }
