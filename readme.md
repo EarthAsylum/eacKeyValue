@@ -142,6 +142,12 @@ setKeyValue( 'my_permanent_key', null );
 
 - - -
 
+### Other Notes
+
+See [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache/) - a persistent object cache using a SQLite database to cache WordPress objects; A drop-in replacement to the WP_Object_Cache used by WordPress.
+
+- - -
+
 ### Changelog
 
 #### Version 1.1.0 – June 10, 2025
