@@ -757,7 +757,7 @@ namespace  // global scope
 		);
 
         // get/set a transient key
-        if ($value = getKeyValue('key_value_transient','transient')) {
+        if ($value = getKeyValue('key_value_transient',null,'transient')) {
             echo "<div class='notice'><pre>get key_value_transient ".var_export($value,true)."</pre></div>";
             setKeyValue('key_value_transient',null);
         } else {
