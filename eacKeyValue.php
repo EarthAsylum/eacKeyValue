@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        11-Jun-2025
+ * Last Updated:        15-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -27,7 +27,8 @@
  *
  * This is a self-contained piece of code - drop in to mu-plugins folder to invoke.
  *
- * This plugin is included with {eac}Doojigger.
+ * This plugin is included with and used by {eac}Doojigger
+ * https://eacdoojigger.earthasylum.com
  *
  * Developers may include this in their project.
  *
@@ -44,61 +45,92 @@ namespace EarthAsylumConsulting
         class eacKeyValue
         {
             /**
-             * @var string table suffix and cache group
+             * @var string table suffix and wp_cache group
              */
-            public const CACHE_ID           = 'eac_key_value';
+            public const CACHE_ID               = 'eac_key_value';
 
             /**
              * @var string when a date is not set
              */
-            private const NULL_DATE         = '0000-00-00 00:00:00';
-
-
-            /**
-             * @var string when scheduling purge event, the schedule/interval name
-             */
-            public static $purge_schedule   = 'daily';
+            private const NULL_DATE             = '0000-00-00 00:00:00';
 
             /**
-             * @var string when scheduling purge event, start at this time
+             * @var array add object cache global groups
              */
-            public static $purge_initial    = 'tomorrow 2:15am';
+            private const GLOBAL_GROUPS         = [
+                self::CACHE_ID.'_site',
+                self::CACHE_ID.'_site:prefetch',
+                'site-transient:prefetch',
+            ].
+
+            /**
+             * @var array add object cache prefetch groups
+             */
+            private const PREFETCH_GROUPS       = [
+                self::CACHE_ID.':prefetch',
+                self::CACHE_ID.'_site:prefetch',
+                'transient:prefetch',
+                'site-transient:prefetch',
+            ].
+
 
             /**
              * @var int auto-commit record limit
+             * EAC_KEYVALUE_AUTO_COMMMIT
              */
-            public static $auto_commit      = 1000;
+            public static $auto_commit          = 1000;
+
+            /**
+             * @var bool persist (to db) transients
+             * EAC_KEYVALUE_PERSIST_TRANSIENTS
+             */
+            public static $persist_transients   = false;
+
+            /**
+             * @var string when scheduling purge event, the schedule/interval name
+             * EAC_KEYVALUE_PURGE_SCHEDULE
+             */
+            public static $purge_schedule       = 'daily';
+
+            /**
+             * @var string when scheduling purge event, start at this time
+             * EAC_KEYVALUE_PURGE_START
+             */
+            public static $purge_initial        = 'tomorrow 2:15am';
+
 
             /**
              * @var int current site/blog id
-             *  0 = standalone site or multisite global
+             *  0 = standalone site or multisite global (sitewide)
              *  1-n = multisite blog id
              */
-            private static $site_id         = 0;
+            private static $site_id             = 0;
 
             /**
-             * @var string table suffix and cache group
-             *  appends '_site' for multisite global
+             * @var string table suffix and wp_cache group
+             *  appends '_site' for multisite global (sitewide)
              */
-            private static $cache_id        = self::CACHE_ID;
+            private static $cache_id            = self::CACHE_ID;
 
             /**
-             * @var array site tables
+             * @var array site tables created/known to exist
              */
-            private static $site_tables     = [];
+            private static $site_tables         = [];
 
             /**
              * @var array keys to be commited to db by site number
+             * $key => ...
              *  time    - to be written to db, with expiration
              *  true    - to be written to db, no expiration
              *  false   - to be deleted from db
              */
-            private static $commit_keys     = [ [] ];
+            private static $commit_keys         = [ [] ];
 
             /**
-             * @var array keys not found
+             * @var array keys not found by site number
+             * $key => null
              */
-            private static $missed_keys     = [ [] ];
+            private static $missed_keys         = [ [] ];
 
 
             /**
@@ -106,37 +138,24 @@ namespace EarthAsylumConsulting
              */
             public static function factory()
             {
-                global $wp_object_cache;
-
-                // global and pre-fetch groups (wp-object-cache)
-                wp_cache_add_global_groups([
-                    self::CACHE_ID.'_site',
-                    self::CACHE_ID.'_site_prefetch'
-                ]);
-                if (wp_cache_supports('prefetch_groups')) {
-                    wp_cache_add_prefetch_groups([
-                        self::CACHE_ID.'_prefetch',
-                        self::CACHE_ID.'_site_prefetch'
-                    ]);
-                } else
-                if (wp_cache_supports('get_group')) {
-                    wp_cache_get_group(self::CACHE_ID.'_prefetch');
-                    wp_cache_get_group(self::CACHE_ID.'_site_prefetch');
+                // global groups (wp-object-cache)
+                wp_cache_add_global_groups(self::GLOBAL_GROUPS);
+                // pre-fetch groups (wp-object-cache), prefetch_groups and get_group are non-standard
+                if (wp_using_ext_object_cache())
+                {
+                    if (wp_cache_supports('prefetch_groups')) {
+                        wp_cache_add_prefetch_groups(self::PREFETCH_GROUPS);
+                    } else
+                    if (wp_cache_supports('get_group')) {
+                        foreach (self::PREFETCH_GROUPS as $prefetch) {
+                            wp_cache_get_group($prefetch);
+                        }
+                    }
                 }
 
-                // max records before triggering auto-commit
-                if (defined('EAC_KEYVALUE_AUTO_COMMMIT') && is_int(EAC_KEYVALUE_AUTO_COMMMIT)) {
-                    self::$auto_commit      = EAC_KEYVALUE_AUTO_COMMMIT;
-                } else if (isset($wp_object_cache->delayed_writes) && is_int($wp_object_cache->delayed_writes)) {
-                    self::$auto_commit      = $wp_object_cache->delayed_writes;     // {eac}ObjectCache
-                }
-
-                // setting automatic (wp-cron) purging
-                if (defined('EAC_KEYVALUE_PURGE_SCHEDULE')) {
-                    self::$purge_schedule   = EAC_KEYVALUE_PURGE_SCHEDULE;
-                }
-                if (defined('EAC_KEYVALUE_PURGE_START')) {
-                    self::$purge_initial    = self::expires(EAC_KEYVALUE_PURGE_START);
+                self::get_constants();
+                if (!wp_using_ext_object_cache()) {
+                     self::$persist_transients  = true;
                 }
 
                 // pre-load known tables and missed keys
@@ -151,6 +170,36 @@ namespace EarthAsylumConsulting
 
                 self::schedule_purge();
             }
+
+
+            /**
+             * Check defined constants (wp_config)
+             */
+            private static function get_constants()
+            {
+                global $wp_object_cache;
+
+                // max records before triggering auto-commit
+                if (defined('EAC_KEYVALUE_AUTO_COMMMIT') && is_int(EAC_KEYVALUE_AUTO_COMMMIT)) {
+                    self::$auto_commit          = EAC_KEYVALUE_AUTO_COMMMIT;
+                } else if (isset($wp_object_cache->delayed_writes) && is_int($wp_object_cache->delayed_writes)) {
+                    self::$auto_commit          = $wp_object_cache->delayed_writes;     // {eac}ObjectCache
+                }
+
+                // persist (to db) keys marked as transient
+                if (defined('EAC_KEYVALUE_PERSIST_TRANSIENTS') && is_bool(EAC_KEYVALUE_PERSIST_TRANSIENTS)) {
+                    self::$persist_transients   = EAC_KEYVALUE_PERSIST_TRANSIENTS;
+                }
+
+                // setting automatic (wp-cron) purging
+                if (defined('EAC_KEYVALUE_PURGE_SCHEDULE')) {
+                    self::$purge_schedule       = EAC_KEYVALUE_PURGE_SCHEDULE;
+                }
+                if (defined('EAC_KEYVALUE_PURGE_START')) {
+                    self::$purge_initial        = self::expires(EAC_KEYVALUE_PURGE_START);
+                }
+            }
+
 
             /**
              * Get a key value
@@ -168,22 +217,19 @@ namespace EarthAsylumConsulting
                 if (array_key_exists($key,self::$missed_keys[self::$site_id]))
                 {
                     // we already know the key doesn't exist
-                 //   $result = null;
+                    $result = null;
                 }
                 else
                 {
                     while (true) {
-                        // check the object cache - maybe prefetch group
-                        $result = wp_cache_get( $key, self::$cache_id.'_prefetch', false, $found );
-                        if ($found) break;
                         // check the object cache
-                        $result = wp_cache_get( $key, self::$cache_id, false, $found );
+                        $result = wp_cache_get( $key, $cache_id, false, $found );
                         if ($found) break;
                         // check the database
                         $result = null;
-	                    if (!$transient || !wp_using_ext_object_cache()) {
-    	                    $result  = self::read($key,true);
-    	                }
+                        if (!$transient || self::$persist_transients) {
+                            $result = self::read($key,true,...$args);
+                        }
                         break;
                     }
                 }
@@ -191,7 +237,7 @@ namespace EarthAsylumConsulting
                 if (is_null($result))
                 {
                     // mark as missing
-                    self::mark_commit_key($key,null);
+                    self::mark_commit_key($key,null,$cache_id);
                     $result = (is_callable($default))
                         ? call_user_func($default,$key,...$args)
                         : $default;
@@ -199,6 +245,7 @@ namespace EarthAsylumConsulting
 
                 return $result;
             }
+
 
             /**
              * Read a key value from the db
@@ -214,7 +261,7 @@ namespace EarthAsylumConsulting
                 static $query = null;
 
                 if (empty($query)) {
-                    $query = "SELECT `value`,`expires` FROM `%i` ".
+                    $query = "SELECT `value`,`expires` FROM %i ".
                              "WHERE `key` = '%s' AND (`expires` = '%s' OR `expires` >= '%s') LIMIT 1";
                 }
 
@@ -227,7 +274,7 @@ namespace EarthAsylumConsulting
                     $value  = maybe_unserialize($result[0]->value);
                     if ($toCache) {
                         $seconds = ($result[0]->expires != self::NULL_DATE)
-                                    ? strtotime($expires) - strtotime('now')
+                                    ? strtotime($result[0]->expires) - strtotime('now')
                                     : 0;
                         wp_cache_set( $key, $value, $cache_id, $seconds );
                     }
@@ -237,6 +284,7 @@ namespace EarthAsylumConsulting
 
                 return null;
             }
+
 
             /**
              * Update cache value
@@ -255,23 +303,24 @@ namespace EarthAsylumConsulting
                 if (is_null($value) || ($expires && $expires <= self::expires()))
                 {
                     wp_cache_delete( $key, $cache_id );
-                    if (!$transient || !wp_using_ext_object_cache()) {
+                    if (!$transient || self::$persist_transients) {
                         // mark for deletion
-                        self::mark_commit_key($key,false);
+                        self::mark_commit_key($key,false,$cache_id);
                     }
                 }
                 else
                 {
                     $seconds = (is_string($expires)) ? strtotime($expires) - strtotime('now') : 0;
                     wp_cache_set( $key, $value, $cache_id, $seconds );
-                    if (!$transient || !wp_using_ext_object_cache()) {
+                    if (!$transient || self::$persist_transients) {
                         // mark for update
-                        self::mark_commit_key($key,$expires ?? true);
+                        self::mark_commit_key($key,$expires ?? true,$cache_id);
                     }
                 }
 
                 return true;
             }
+
 
             /**
              * Write data to db
@@ -288,7 +337,7 @@ namespace EarthAsylumConsulting
                 static $query = null;
 
                 if (empty($query)) {
-                    $query = "INSERT INTO `%i` (`key`, `value`, `expires`) VALUES ('%s', '%s', '%s') " .
+                    $query = "INSERT INTO %i (`key`, `value`, `expires`) VALUES ('%s', '%s', '%s') " .
                              "ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `expires` = VALUES(`expires`);";
                 }
 
@@ -320,6 +369,7 @@ namespace EarthAsylumConsulting
                 return $result;
             }
 
+
             /**
              * Delete cache value
              *
@@ -334,18 +384,19 @@ namespace EarthAsylumConsulting
                 // key, expires, transient, prefetch, sitewide, cache_id
                 extract(self::parse_options($key,...$args));
 
-                wp_cache_delete( $key, $cache_id.'_prefetch' );
                 wp_cache_delete( $key, $cache_id );
-                $result = $wpdb->delete(self::get_table(),['key' => $key]);
-
-                if ($result === false) {
-                    self::is_error($wpdb->last_error,__FUNCTION__);
+                if (!$transient || self::$persist_transients) {
+                    $result = $wpdb->delete(self::get_table(),['key' => $key]);
+                    if ($result === false) {
+                        self::is_error($wpdb->last_error,__FUNCTION__);
+                    }
                 }
 
                 // mark as deleted
-                self::mark_commit_key($key,null);
+                self::mark_commit_key($key,null,$cache_id);
                 return $result;
             }
+
 
             /**
              * Parse options
@@ -354,7 +405,7 @@ namespace EarthAsylumConsulting
              * @param string[]      $args
              *                      - $expires (timestamp, seconds, datetime, string)
              *                      - 'transient', 'prefeth', 'sitewide'
-             * @return array        ['key'=>,'expires'=>,'prefetch'=>,'sitewide'=>, 'cache_id'=>]
+             * @return array        ['key'=>,'expires'=>,'prefetch'=>,'sitewide'=>,'cache_id'=>]
              */
             protected static function parse_options($key, ...$args )
             {
@@ -368,14 +419,12 @@ namespace EarthAsylumConsulting
                 ];
 
                 if (empty($return['key'])) {
-                    self::is_error('invalid key-value key',__FUNCTION__);
+                    self::is_error('invalid key/value key',__FUNCTION__);
                 }
 
                 foreach ($args as $options)
                 {
-                    if (is_bool($options) && $options) {                    // only bool option is prefetch
-                        $return['prefetch'] = $options;
-                    } else if (is_int($options) || is_object($options)) {   // must be expires secs,time,datetime
+                    if (is_int($options) || is_object($options)) {          // must be expires secs,time,datetime
                         $return['expires'] = self::expires($options);
                     } else if (is_string($options)) {
                         if ($options == 'transient') {
@@ -392,166 +441,25 @@ namespace EarthAsylumConsulting
                     }
                 }
 
-                self::set_site_id($return['sitewide']);
+                self::set_site_id($return['sitewide']);                     // sets self::$cache_id
 
-                $return['cache_id'] = ($return['prefetch'])
-                    ? self::$cache_id . '_prefetch'
-                    : self::$cache_id;
+                if ($return['transient']) {
+                    // transient group id
+                    $return['cache_id'] = ($return['sitewide'])
+                        ? 'site-transient'
+                        : 'transient';
+                } else {
+                    // default group id
+                    $return['cache_id'] = self::$cache_id;
+                }
+                if ($return['prefetch']) {
+                    // prefetch suffix
+                    $return['cache_id'] .= ':prefetch';
+                }
 
                 return $return;
             }
 
-            /**
-             * Cache list of missing keys of keys to be updated
-             *
-             * @param string        $key
-             * @param mixed         $value
-             *  time    - to be written to db, with expiration
-             *  true    - to be written to db, no expiration
-             *  false   - to be deleted from db
-             *  null    - doesn't exists
-             */
-            private static function mark_commit_key($key,$value='')
-            {
-                if (func_num_args() == 1)               // clear key
-                {
-                    unset(self::$commit_keys[self::$site_id][$key]);
-                    unset(self::$missed_keys[self::$site_id][$key]);
-                }
-                else if (is_null($value))               // does not exist
-                {
-                    self::$missed_keys[self::$site_id][$key] = null;
-                    unset(self::$commit_keys[self::$site_id][$key]);
-                }
-                else                                    // to be committed
-                {
-                    self::$commit_keys[self::$site_id][$key] = $value;
-                    if ($value) {   // to update
-                        unset(self::$missed_keys[self::$site_id][$key]);
-                    } else {        // to delete
-                        self::$missed_keys[self::$site_id][$key] = null;
-                    }
-
-                    $count = count(self::$commit_keys,COUNT_RECURSIVE) - count(self::$commit_keys);
-                    if ($count >= self::$auto_commit) {
-                        self::commit();
-                        self::onShutdown(false);
-                    } else {
-                        self::onShutdown(true);
-                    }
-                }
-            }
-
-            /**
-             * On shutdown action
-             */
-            public static function onShutdown($set=true)
-            {
-                if ($set){
-                    if (!has_action("shutdown", [self::class,'flush'])) {
-                        add_action( "shutdown", [self::class,'flush'], PHP_INT_MAX );
-                    }
-                } else {
-                    remove_action( "shutdown", [self::class,'flush'], PHP_INT_MAX );
-                }
-            }
-
-            /**
-             * Flush cache to db
-             */
-            public static function flush()
-            {
-                self::commit();
-            }
-
-            /**
-             * Commit cache to db
-             */
-            protected static function commit()
-            {
-                foreach (self::$commit_keys as $site => $commit_keys)
-                {
-                    self::set_site_id($site);
-                    self::commit_site($commit_keys);
-                }
-                self::$commit_keys = [];
-
-                $parameters = [
-                    'site_tables'   => self::$site_tables,
-                    'missed_keys'   => self::$missed_keys,
-                ];
-                wp_cache_set(__CLASS__,$parameters,self::CACHE_ID);
-            }
-
-            /**
-             * Commit cache to db for a site
-             */
-            protected static function commit_site($commit_keys)
-            {
-                global $wpdb;
-                $toWrite = $toDelete = [];
-
-                foreach ($commit_keys as $key => $isCached)
-                {
-                    if ($isCached === false) {
-                        $toDelete[] = [
-                            esc_sql($key)
-                        ];
-                    } else if (!is_null($isCached)) {
-                        $toWrite[] = [
-                            esc_sql($key),
-                            maybe_serialize(
-                                wp_cache_get($key,self::$cache_id.'_prefetch' ) ?: wp_cache_get($key,self::$cache_id )
-                            ),
-                            (is_bool($isCached) ? '' : $isCached)
-                        ];
-                    }
-                }
-
-                if (!empty($toWrite)) {
-                    $query =
-                        "INSERT INTO `".self::get_table()."` (`key`, `value`, `expires`)" .
-                        " VALUES ".rtrim(str_repeat("('%s', '%s', '%s'),", count($toWrite)),',') .
-                        " ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `expires` = VALUES(`expires`);";
-                    $result = $wpdb->query( vsprintf($query,array_merge(...$toWrite)) );
-                }
-
-                if (!empty($toDelete)) {
-                    $query =
-                        "DELETE FROM `".self::get_table()."`" .
-                        " WHERE `key` IN (".rtrim(str_repeat("'%s',", count($toDelete)),',').")";
-                    $result = $wpdb->query( vsprintf($query,array_merge(...$toDelete)) );
-                }
-            }
-
-            /**
-             * multisite - set site id (and cache id)
-             *
-             * @param bool|int  $sitewide or site id
-             * @return int      site id
-             */
-            protected static function set_site_id( $sitewide=false )
-            {
-                if (is_multisite())
-                {
-                    self::$site_id = ($sitewide !== false)
-                        ? ( (is_int($sitewide)) ? $sitewide : 0 )
-                        : get_current_blog_id();
-
-                    self::$cache_id = (self::$site_id > 0)
-                        ? self::CACHE_ID
-                        : self::CACHE_ID.'_site';
-
-                    if (!isset(self::$commit_keys[self::$site_id])) {
-                        self::$commit_keys[self::$site_id] = [];
-                    }
-                    if (!isset(self::$missed_keys[self::$site_id])) {
-                        self::$missed_keys[self::$site_id] = [];
-                    }
-                }
-
-                return self::$site_id;
-            }
 
             /**
              * Get expiration timestamp
@@ -590,6 +498,175 @@ namespace EarthAsylumConsulting
                 return null;
             }
 
+
+            /**
+             * multisite - set site id (and cache id)
+             *
+             * @param bool|int  $sitewide or site id
+             * @return int      site id
+             */
+            protected static function set_site_id( $sitewide=false )
+            {
+                if (is_multisite())
+                {
+                    self::$site_id = ($sitewide !== false)
+                        ? ( (is_int($sitewide)) ? $sitewide : 0 )
+                        : get_current_blog_id();
+
+                    self::$cache_id = (self::$site_id > 0)
+                        ? self::CACHE_ID
+                        : self::CACHE_ID.'_site';
+
+                    if (!isset(self::$commit_keys[self::$site_id])) {
+                        self::$commit_keys[self::$site_id] = [];
+                    }
+                    if (!isset(self::$missed_keys[self::$site_id])) {
+                        self::$missed_keys[self::$site_id] = [];
+                    }
+                }
+
+                return self::$site_id;
+            }
+
+
+            /**
+             * Cache list of missing keys or keys to be updated
+             *
+             * @param string        $key
+             * @param mixed         $expires
+             *  time    - to be written to db, with expiration
+             *  true    - to be written to db, no expiration
+             *  false   - to be deleted from db
+             *  null    - doesn't exists
+             * @param string        $cache_id
+             */
+            private static function mark_commit_key($key,$expires='',$cache_id='')
+            {
+                if (func_num_args() == 1)               // clear key
+                {
+                    unset(self::$commit_keys[self::$site_id][$key]);
+                    unset(self::$missed_keys[self::$site_id][$key]);
+                }
+                else if (is_null($expires))             // does not exist
+                {
+                    self::$missed_keys[self::$site_id][$key] = null;
+                    unset(self::$commit_keys[self::$site_id][$key]);
+                }
+                else                                    // to be committed
+                {
+                    if ($expires === false) {           // to delete
+                        self::$commit_keys[self::$site_id][$key] = false;
+                        self::$missed_keys[self::$site_id][$key] = null;
+                    } else {                            // to update
+                        self::$commit_keys[self::$site_id][$key] = [$expires,$cache_id];
+                        unset(self::$missed_keys[self::$site_id][$key]);
+                    }
+
+                    $count = count(self::$commit_keys,COUNT_RECURSIVE) - count(self::$commit_keys);
+                    if ($count >= self::$auto_commit) {
+                        self::commit();
+                        self::onShutdown(false);
+                    } else {
+                        self::onShutdown(true);
+                    }
+                }
+            }
+
+
+            /**
+             * On shutdown action
+             */
+            public static function onShutdown($set=true)
+            {
+                if ($set){
+                    if (!has_action("shutdown", [self::class,'flush'])) {
+                        add_action( "shutdown", [self::class,'flush'], PHP_INT_MAX );
+                    }
+                } else {
+                    remove_action( "shutdown", [self::class,'flush'], PHP_INT_MAX );
+                }
+            }
+
+
+            /**
+             * Flush cache to db
+             */
+            public static function flush()
+            {
+                self::commit();
+            }
+
+
+            /**
+             * Commit cache to db
+             */
+            protected static function commit()
+            {
+                foreach (self::$commit_keys as $site => $commit_keys)
+                {
+                    self::set_site_id($site);
+                    self::commit_site($commit_keys);
+                }
+                self::$commit_keys = [];
+
+                $parameters = [
+                    'site_tables'   => self::$site_tables,
+                    'missed_keys'   => self::$missed_keys,
+                ];
+                wp_cache_set(__CLASS__,$parameters,self::CACHE_ID);
+            }
+
+
+            /**
+             * Commit cache to db for a site
+             */
+            protected static function commit_site($commit_keys)
+            {
+                global $wpdb;
+                $toWrite = $toDelete = [];
+
+                foreach ($commit_keys as $key => $isCached)
+                {
+                    if ($isCached === false) {
+                        $toDelete[] = [
+                            esc_sql($key)
+                        ];
+                    } else if (is_array($isCached)) {
+                        $value = wp_cache_get( $key, $isCached[1], false, $found );
+                        if (!$found) {
+                            self::is_error("{$key} ({$isCached[1]}) not found in wp_cache",__FUNCTION__);
+                        }
+                        $toWrite[] = [
+                            esc_sql($key),
+                            esc_sql(maybe_serialize($value)),
+                            (is_bool($isCached[0]) ? '' : $isCached[0])
+                        ];
+                    }
+                }
+
+                if (!empty($toWrite)) {
+                    $query =
+                        "INSERT INTO `".self::get_table()."` (`key`, `value`, `expires`)" .
+                        " VALUES ".rtrim(str_repeat("('%s', '%s', '%s'),", count($toWrite)),',') .
+                        " ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `expires` = VALUES(`expires`);";
+                    $result = $wpdb->query( vsprintf($query,array_merge(...$toWrite)) );
+                    if ($result === false) {
+                        self::is_error($wpdb->last_error,__FUNCTION__.'::insert');
+                    }
+                }
+
+                if (!empty($toDelete)) {
+                    $query =
+                        "DELETE FROM `".self::get_table()."`" .
+                        " WHERE `key` IN (".rtrim(str_repeat("'%s',", count($toDelete)),',').")";
+                    $result = $wpdb->query( vsprintf($query,array_merge(...$toDelete)) );
+                    if ($result === false) {
+                        self::is_error($wpdb->last_error,__FUNCTION__.'::delete');
+                    }
+                }
+            }
+
+
             /**
              * Get table name, create table if needed
              * @return string|false
@@ -610,6 +687,7 @@ namespace EarthAsylumConsulting
                 return $table;
             }
 
+
             /**
              * Create cache table
              */
@@ -623,7 +701,7 @@ namespace EarthAsylumConsulting
                     "CREATE TABLE IF NOT EXISTS `{$table}` (
                         `id` bigint(10) unsigned NOT NULL AUTO_INCREMENT,
                         `key` varchar(255) NOT NULL,
-                        `value` longtext NOT NULL,
+                        `value` longblob NOT NULL,
                         `expires` timestamp NOT NULL DEFAULT '".SELF::NULL_DATE."',
                         PRIMARY KEY (`id`), UNIQUE `key` (`key`), key `expires` (expires)
                     ) ENGINE=InnoDB {$charset_collate};",
@@ -635,6 +713,7 @@ namespace EarthAsylumConsulting
 
                 return true;
             }
+
 
             /**
              * Schedule cache purge
@@ -652,6 +731,7 @@ namespace EarthAsylumConsulting
                     add_action( $eventName, [self::class, 'purge_expired_keys'] );
                 }
             }
+
 
             /**
              * Purge expired cache records.
@@ -673,9 +753,13 @@ namespace EarthAsylumConsulting
 
                     if (!$result) {
                         self::is_error($wpdb->last_error,__FUNCTION__);
+                    } else {
+                        error_log(current_action().': completed, '.
+                            $wpdb->rows_affected.' keys deleted from '.$table);
                     }
                 }
             }
+
 
             /**
              * register error
@@ -691,17 +775,19 @@ namespace EarthAsylumConsulting
                 throw new \Exception($source.': '.$message);
             }
         } // class
+
         /*
          * Initialize the class
          */
         eacKeyValue::factory();
+
     } // class_exists
 } // namespace EarthAsylumConsulting
 
 
 namespace  // global scope
 {
-    if (! function_exists('getKeyValue'))
+    if (! function_exists('get_key_value'))
     {
         /**
          * Get a key-value pair
@@ -711,13 +797,26 @@ namespace  // global scope
          * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
          * @return mixed            unserialized value
          */
-        function getKeyValue($key, $default=null, ...$args)
+        function get_key_value($key, $default=null, ...$args)
         {
             return \EarthAsylumConsulting\eacKeyValue::get($key, $default, ...$args);
         }
+
+        /**
+         * Get a site-wide key-value pair
+         *
+         * @param Stringable        $key
+         * @param mixed|callable    $default (if key is not found)
+         * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+         * @return mixed            unserialized value
+         */
+        function get_site_key_value($key, $default=null, ...$args)
+        {
+            return \EarthAsylumConsulting\eacKeyValue::get($key, $default, 'sitewide', ...$args);
+        }
     }
 
-    if (! function_exists('setKeyValue'))
+    if (! function_exists('set_key_value'))
     {
         /**
          * Set a key-value pair
@@ -728,9 +827,23 @@ namespace  // global scope
          * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
          * @return bool             true
          */
-        function setKeyValue($key, $value, $expires=null, ...$args)
+        function set_key_value($key, $value, $expires=null, ...$args)
         {
             return \EarthAsylumConsulting\eacKeyValue::put($key, $value, $expires, ...$args);
+        }
+
+        /**
+         * Set a site-wide key-value pair
+         *
+         * @param Stringable        $key
+         * @param mixed             $value
+         * @param mixed             $expires (timestamp, seconds, datetime, string)
+         * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+         * @return bool             true
+         */
+        function set_site_key_value($key, $value, $expires=null, ...$args)
+        {
+            return \EarthAsylumConsulting\eacKeyValue::put($key, $value, $expires, 'sitewide', ...$args);
         }
     }
 
@@ -742,51 +855,51 @@ namespace  // global scope
     add_action('admin_init',function()
     {
         // get/set a key
-        if ($value = getKeyValue('key_value_test')) {
+        if ($value = get_key_value('key_value_test')) {
             echo "<div class='notice'><pre>get key_value_test ".var_export($value,true)."</pre></div>";
-            setKeyValue('key_value_test',null);
+            set_key_value('key_value_test',null);
         } else {
-            setKeyValue('key_value_test',wp_date('c'),HOUR_IN_SECONDS);
+            set_key_value('key_value_test',wp_date('c'),HOUR_IN_SECONDS);
         }
 
         // get/set a key using a callback
-		$value = getKeyValue( 'key_value_callback', function($key)
-			{
-				setKeyValue( $key, wp_date('c'), MINUTE_IN_SECONDS );
-				return $value;
-			}
-		);
+        $value = get_key_value( 'key_value_callback', function($key)
+            {
+                set_key_value( $key, wp_date('c'), MINUTE_IN_SECONDS );
+                return $value;
+            }
+        );
 
         // get/set a transient key
-        if ($value = getKeyValue('key_value_transient',null,'transient')) {
+        if ($value = get_key_value('key_value_transient',null,'transient')) {
             echo "<div class='notice'><pre>get key_value_transient ".var_export($value,true)."</pre></div>";
-            setKeyValue('key_value_transient',null);
+            set_key_value('key_value_transient',null);
         } else {
-            setKeyValue('key_value_transient',wp_date('c'),HOUR_IN_SECONDS,'transient');
+            set_key_value('key_value_transient',wp_date('c'),HOUR_IN_SECONDS,'transient');
         }
 
         // get/set a prefetch key
-        if ($value = getKeyValue('key_value_prefetch')) {
+        if ($value = get_key_value('key_value_prefetch',null,'prefetch')) {
             echo "<div class='notice'><pre>get key_value_prefetch ".var_export($value,true)."</pre></div>";
-            setKeyValue('key_value_prefetch',null);
+            set_key_value('key_value_prefetch',null);
         } else {
-            setKeyValue('key_value_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch');
+            set_key_value('key_value_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch');
         }
 
         // get/set a sitewide key
-        if ($value = getKeyValue('key_value_site',null,'sitewide')) {
+        if ($value = get_key_value('key_value_site',null,'sitewide')) {
             echo "<div class='notice'><pre>get key_value_site ".var_export($value,true)."</pre></div>";
-            setKeyValue('key_value_site',null,'sitewide');
+            set_key_value('key_value_site',null,'sitewide');
         } else {
-            setKeyValue('key_value_site',wp_date('c'),HOUR_IN_SECONDS,'sitewide');
+            set_key_value('key_value_site',wp_date('c'),HOUR_IN_SECONDS,'sitewide');
         }
 
         // get/set a sitewide-prefetch key
-        if ($value = getKeyValue('key_value_site_prefetch',null,'sitewide')) {
+        if ($value = get_key_value('key_value_site_prefetch',null,'prefetch','sitewide')) {
             echo "<div class='notice'><pre>get key_value_site_prefetch ".var_export($value,true)."</pre></div>";
-            setKeyValue('key_value_site_prefetch',null,'sitewide');
+            set_key_value('key_value_site_prefetch',null,'sitewide');
         } else {
-            setKeyValue('key_value_site_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch','sitewide');
+            set_key_value('key_value_site_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch','sitewide');
         }
     });
     */
