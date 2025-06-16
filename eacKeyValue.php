@@ -61,7 +61,7 @@ namespace EarthAsylumConsulting
                 self::CACHE_ID.'_site',
                 self::CACHE_ID.'_site:prefetch',
                 'site-transient:prefetch',
-            ].
+            ];
 
             /**
              * @var array add object cache prefetch groups
@@ -71,7 +71,7 @@ namespace EarthAsylumConsulting
                 self::CACHE_ID.'_site:prefetch',
                 'transient:prefetch',
                 'site-transient:prefetch',
-            ].
+            ];
 
 
             /**
@@ -699,7 +699,7 @@ namespace EarthAsylumConsulting
 
                 $result = $wpdb->query(
                     "CREATE TABLE IF NOT EXISTS `{$table}` (
-                        `id` bigint(10) unsigned NOT NULL AUTO_INCREMENT,
+                        `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
                         `key` varchar(255) NOT NULL,
                         `value` longblob NOT NULL,
                         `expires` timestamp NOT NULL DEFAULT '".SELF::NULL_DATE."',
