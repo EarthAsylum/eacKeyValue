@@ -8,7 +8,7 @@
 Plugin URI:             https://github.com/EarthAsylum/eacKeyValue  
 Author:                 [EarthAsylum Consulting](https://www.earthasylum.com)  
 Stable tag:             1.1.0  
-Last Updated:           15-Jun-2025  
+Last Updated:           17-Jun-2025  
 Requires at least:      5.8  
 Tested up to:           6.8  
 Requires PHP:           8.1  
@@ -73,15 +73,25 @@ These parameters alter functionality and are used to determine group keys. As su
     set_site_key_value( $key, $value, [$expires] );
     get_site_key_value( $key, $default );
 
-`transient` - Treat this key/value as transient. When using an external object cache, the key/value is not stored in the key-value table (assuming that the object cache stores it).
+`transient` - Treat this key/value as transient. When using an external object cache, the key/value is not stored in the key-value table, assuming that the object cache will store it.
 
     set_key_value( $key, $value, [$expires], "transient" );
     get_key_value( $key, $default, "transient" );
+
+`nocache` - Marks the key/value as "non-persistent" so an external object cache will not store the key/value. It is stored in the key-value table.
+
+    set_key_value( $key, $value, [$expires], "nocache" );
+    get_key_value( $key, $default, "nocache" );
 
 `prefetch` - If the object cache supports pre-fetching, indicates this should be a pre-fetched key/value. Pre-fetched items are loaded and cached in a single operation at the start of a request.
 
     set_key_value( $key, $value, [$expires], "prefetch" );
     get_key_value( $key, $default, "prefetch" );
+
+`encrypt` or `decrypt` - Uses [{eac}Doojigger](https://eacdoojigger.earthasylum.com) (with encryption extension) to encrypt the value when storing or caching and decrypt the value when retrieving.
+
+    set_key_value( $key, $value, [$expires], "encrypt" );
+    get_key_value( $key, $default, "decrypt" );
     
 Optional parameters (including $expires) may be combined in any order.
 
@@ -135,6 +145,12 @@ $value = get_key_value( 'my_not_found_key', function($key,...$args)
 );
 ```
 
++   Store/Retrieve an encrypted key/value:
+```php
+set_key_value( 'my_encrypted_key', $value, 'encrypt' );
+get_key_value( 'my_encrypted_key', null, 'decrypt' );
+```
+
 +   Delete a key/value:
 ```php
 set_key_value( 'my_permanent_key', null );
@@ -176,10 +192,12 @@ See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache
 
 ### Changelog
 
-#### Version 1.1.0 – June 15, 2025
+#### Version 1.1.0 – June 17, 2025
 
-+   Added `sitewide` option for multi-site support.
++   Added `encrypt` option.
 +   Added `transient` option.
++   Added `nocache` option (non-persistent).
++   Added `sitewide` option for multi-site support.
 +   Added `EAC_KEYVALUE_PERSIST_TRANSIENTS` constant.
 +   Support and parse variable argument signatures.
 +   Cache eacKeyValue dynamic settings (tables & missed keys).

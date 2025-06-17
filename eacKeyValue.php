@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        15-Jun-2025
+ * Last Updated:        17-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -60,7 +60,10 @@ namespace EarthAsylumConsulting
             private const GLOBAL_GROUPS         = [
                 self::CACHE_ID.'_site',
                 self::CACHE_ID.'_site:prefetch',
+                self::CACHE_ID.'_site:nocaching',
+                'site-transient',
                 'site-transient:prefetch',
+                'site-transient:nocaching',
             ];
 
             /**
@@ -71,6 +74,16 @@ namespace EarthAsylumConsulting
                 self::CACHE_ID.'_site:prefetch',
                 'transient:prefetch',
                 'site-transient:prefetch',
+            ];
+
+            /**
+             * @var array add object cache no-caching groups
+             */
+            private const NOCACHE_GROUPS        = [
+                self::CACHE_ID.':nocaching',
+                self::CACHE_ID.'_site:nocaching',
+                'transient:nocaching',
+                'site-transient:nocaching',
             ];
 
 
@@ -140,9 +153,9 @@ namespace EarthAsylumConsulting
             {
                 // global groups (wp-object-cache)
                 wp_cache_add_global_groups(self::GLOBAL_GROUPS);
-                // pre-fetch groups (wp-object-cache), prefetch_groups and get_group are non-standard
                 if (wp_using_ext_object_cache())
                 {
+                    // pre-fetch groups, prefetch_groups and get_group are non-standard
                     if (wp_cache_supports('prefetch_groups')) {
                         wp_cache_add_prefetch_groups(self::PREFETCH_GROUPS);
                     } else
@@ -151,6 +164,8 @@ namespace EarthAsylumConsulting
                             wp_cache_get_group($prefetch);
                         }
                     }
+                    // non-persistent groups
+                    wp_cache_add_non_persistent_groups(self::NOCACHE_GROUPS);
                 }
 
                 self::get_constants();
@@ -206,12 +221,12 @@ namespace EarthAsylumConsulting
              *
              * @param string            $key
              * @param mixed|callable    $default
-             * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+             * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
              * @return mixed|null       $value
              */
             public static function get(string|int|\Stringable $key, $default=null, ...$args)
             {
-                // key, expires, transient, prefetch, sitewide, cache_id
+                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
                 extract(self::parse_options($key,...$args));
 
                 if (array_key_exists($key,self::$missed_keys[self::$site_id]))
@@ -224,7 +239,12 @@ namespace EarthAsylumConsulting
                     while (true) {
                         // check the object cache
                         $result = wp_cache_get( $key, $cache_id, false, $found );
-                        if ($found) break;
+                        if ($found) {
+                            if ($encrypt) {
+                                $value = \apply_filters( 'eacDoojigger_decrypt_string', $value );
+                            }
+                            break;
+                        }
                         // check the database
                         $result = null;
                         if (!$transient || self::$persist_transients) {
@@ -252,7 +272,7 @@ namespace EarthAsylumConsulting
              *
              * @param string        $key
              * @param bool          $toCache save to object cache after read
-             * @param string[]      $args - 'transient', 'prefeth', 'sitewide'
+             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide'
              * @return mixed|null   $value
              */
             public static function read(string|int|\Stringable $key, $toCache=false, ...$args)
@@ -265,7 +285,7 @@ namespace EarthAsylumConsulting
                              "WHERE `key` = '%s' AND (`expires` = '%s' OR `expires` >= '%s') LIMIT 1";
                 }
 
-                // key, expires, transient, prefetch, sitewide, cache_id
+                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
                 extract(self::parse_options($key,...$args));
 
                 if ($result = $wpdb->get_results(
@@ -277,6 +297,9 @@ namespace EarthAsylumConsulting
                                     ? strtotime($result[0]->expires) - strtotime('now')
                                     : 0;
                         wp_cache_set( $key, $value, $cache_id, $seconds );
+                    }
+                    if ($encrypt) {
+                        $value = \apply_filters( 'eacDoojigger_decrypt_string', $value );
                     }
                     unset(self::$missed_keys[self::$site_id][$key]);
                     return $value;
@@ -292,12 +315,12 @@ namespace EarthAsylumConsulting
              * @param string        $key
              * @param mixed         $value value or null
              * @param mixed         $expires (timestamp, seconds, datetime, string)
-             * @param string[]      $args - 'transient', 'prefeth', 'sitewide'
+             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide'
              * @return mixed        true
              */
             public static function put(string|int|\Stringable $key, $value, $expires=null, ...$args)
             {
-                // key, expires, transient, prefetch, sitewide, cache_id
+                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
                 extract(self::parse_options($key,$expires,...$args));
 
                 if (is_null($value) || ($expires && $expires <= self::expires()))
@@ -311,6 +334,9 @@ namespace EarthAsylumConsulting
                 else
                 {
                     $seconds = (is_string($expires)) ? strtotime($expires) - strtotime('now') : 0;
+                    if ($encrypt) {
+                        $value = \apply_filters( 'eacDoojigger_encrypt_string', $value );
+                    }
                     wp_cache_set( $key, $value, $cache_id, $seconds );
                     if (!$transient || self::$persist_transients) {
                         // mark for update
@@ -328,7 +354,7 @@ namespace EarthAsylumConsulting
              * @param string        $key
              * @param mixed         $value (null = get from cache)
              * @param mixed         $expires (timestamp, seconds, datetime, string)
-             * @param string[]      $args - 'transient', 'prefeth', 'sitewide'
+             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide'
              * @return int          rows affected
              */
             public static function write(string|int|\Stringable $key, $value=null, $expires=null, ...$args)
@@ -341,14 +367,19 @@ namespace EarthAsylumConsulting
                              "ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `expires` = VALUES(`expires`);";
                 }
 
-                // key, expires, transient, prefetch, sitewide, cache_id
+                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
                 extract(self::parse_options($key,$expires,...$args));
 
                 if (is_null($value)) {
                     $value  = wp_cache_get( $key, $cache_id, false, $found );
                     if (!$found) $value = null;
-                } else if (is_object($value)) {
-                    $value  = clone $value;
+                } else {
+                    if (is_object($value)) {
+                        $value  = clone $value;
+                    }
+                    if ($encrypt) {
+                        $value = \apply_filters( 'eacDoojigger_encrypt_string', $value );
+                    }
                 }
 
                 if (!is_null($value))
@@ -374,14 +405,14 @@ namespace EarthAsylumConsulting
              * Delete cache value
              *
              * @param string        $key
-             * @param string[]      $args - 'transient', 'prefeth', 'sitewide'
+             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide'
              * @return int          rows affected
              */
             public static function delete(string|int|\Stringable $key, ...$args)
             {
                 global $wpdb;
 
-                // key, expires, transient, prefetch, sitewide, cache_id
+                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
                 extract(self::parse_options($key,...$args));
 
                 wp_cache_delete( $key, $cache_id );
@@ -404,19 +435,27 @@ namespace EarthAsylumConsulting
              * @param string        $key
              * @param string[]      $args
              *                      - $expires (timestamp, seconds, datetime, string)
-             *                      - 'transient', 'prefeth', 'sitewide'
-             * @return array        ['key'=>,'expires'=>,'prefetch'=>,'sitewide'=>,'cache_id'=>]
+             *                      - 'transient', 'nocache', 'prefetch', 'sitewide'
+             * @return array        [ 'key'=>, 'cache_id'=>, 'expires'=>, ... ]
              */
             protected static function parse_options($key, ...$args )
             {
+                static $optionKeys = null;
                 $return = [
                     'key'           => trim( (string)$key ),
+                    'cache_id'      => null,
                     'expires'       => null,
+                // $args
                     'transient'     => false,
+                    'nocache'       => false,
                     'prefetch'      => false,
                     'sitewide'      => false,
-                    'cache_id'      => null,
+                    'encrypt'       => false,
                 ];
+
+                if (is_null($optionKeys)) {
+                    $optionKeys = array_slice(array_keys($return),3);
+                }
 
                 if (empty($return['key'])) {
                     self::is_error('invalid key/value key',__FUNCTION__);
@@ -427,12 +466,10 @@ namespace EarthAsylumConsulting
                     if (is_int($options) || is_object($options)) {          // must be expires secs,time,datetime
                         $return['expires'] = self::expires($options);
                     } else if (is_string($options)) {
-                        if ($options == 'transient') {
-                            $return['transient'] = true;
-                        } else if ($options == 'prefetch') {
-                            $return['prefetch'] = true;
-                        } else if ($options == 'sitewide') {
-                            $return['sitewide'] = true;
+                        if (in_array($options,$optionKeys)) {
+                            $return[$options] = true;
+                        } else if ($options == 'decrypt') {                 // encrypt alternate
+                            $return['encrypt'] = true;
                         } else if ($expires = self::expires($options)) {    // maybe expires string
                             $return['expires'] = $expires;
                         }
@@ -443,17 +480,16 @@ namespace EarthAsylumConsulting
 
                 self::set_site_id($return['sitewide']);                     // sets self::$cache_id
 
-                if ($return['transient']) {
-                    // transient group id
+                if ($return['transient']) {                                 // transient group id
                     $return['cache_id'] = ($return['sitewide'])
-                        ? 'site-transient'
-                        : 'transient';
-                } else {
-                    // default group id
+                        ? 'site-transient' : 'transient';
+                } else {                                                    // default group id
                     $return['cache_id'] = self::$cache_id;
                 }
-                if ($return['prefetch']) {
-                    // prefetch suffix
+
+                if ($return['nocache']) {                                   // nocache suffix
+                    $return['cache_id'] .= ':nocaching';
+                } else if ($return['prefetch']) {                           // prefetch suffix
                     $return['cache_id'] .= ':prefetch';
                 }
 
@@ -794,7 +830,7 @@ namespace  // global scope
          *
          * @param Stringable        $key
          * @param mixed|callable    $default (if key is not found)
-         * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
          * @return mixed            unserialized value
          */
         function get_key_value($key, $default=null, ...$args)
@@ -807,7 +843,7 @@ namespace  // global scope
          *
          * @param Stringable        $key
          * @param mixed|callable    $default (if key is not found)
-         * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
          * @return mixed            unserialized value
          */
         function get_site_key_value($key, $default=null, ...$args)
@@ -824,7 +860,7 @@ namespace  // global scope
          * @param Stringable        $key
          * @param mixed             $value
          * @param mixed             $expires (timestamp, seconds, datetime, string)
-         * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
          * @return bool             true
          */
         function set_key_value($key, $value, $expires=null, ...$args)
@@ -838,7 +874,7 @@ namespace  // global scope
          * @param Stringable        $key
          * @param mixed             $value
          * @param mixed             $expires (timestamp, seconds, datetime, string)
-         * @param string[]          $args - 'transient', 'prefeth', 'sitewide'
+         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
          * @return bool             true
          */
         function set_site_key_value($key, $value, $expires=null, ...$args)
@@ -900,6 +936,17 @@ namespace  // global scope
             set_key_value('key_value_site_prefetch',null,'sitewide');
         } else {
             set_key_value('key_value_site_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch','sitewide');
+        }
+
+        // get/set an encrypted key
+        if ($value = get_key_value('key_value_encrypt',null,'decrypt')) {
+            echo "<div class='notice'><pre>get decrypted key_value_encrypt ".var_export($value,true)."</pre></div>";
+            if ($value = \EarthAsylumConsulting\eacKeyValue::read('key_value_encrypt')) {
+                echo "<div class='notice'><pre>read raw key_value_encrypt ".var_export($value,true)."</pre></div>";
+            }
+            set_key_value('key_value_encrypt',null);
+        } else {
+            set_key_value('key_value_encrypt',wp_date('c'),HOUR_IN_SECONDS,'encrypt');
         }
     });
     */
