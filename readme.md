@@ -8,7 +8,7 @@
 Plugin URI:             https://github.com/EarthAsylum/eacKeyValue  
 Author:                 [EarthAsylum Consulting](https://www.earthasylum.com)  
 Stable tag:             1.1.0  
-Last Updated:           17-Jun-2025  
+Last Updated:           18-Jun-2025  
 Requires at least:      5.8  
 Tested up to:           6.8  
 Requires PHP:           8.1  
@@ -49,15 +49,17 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
 
 #### Method Arguments:
 
-    $key     stringable         The key to store/access
-    $default mixed|callable     default value when $key is not found (null)
-    $value   mixed|null         data to be stored (should not be serialized).
-    $expires mixed|null         The expiration of the key/value pair.
+    `$key`     stringable       The key to store/access
+    `$default` mixed|callable   default value when $key is not found (null)
+    `$value`   mixed|null       data to be stored (should not be serialized).
+    `$expires` mixed|null       The expiration of the key/value pair.
                                 null            - no expiration
                                 int (<= 1 year) - seconds from now
                                 int ( > 1 year) - timestamp (UTC)
                                 string          - textual datetime, local time (wp_timezone)
                                 DateTime object - converted to UTC
+
+>   Passing `$expires` with `$default` to `get_key_value()` will save the key/value if the default value is used.
 
 #### Optional Parameters
 
@@ -136,12 +138,20 @@ $value = get_key_value( 'my_not_found_key', 'default_value' );
 
 +   Using a callback when retrieving a key:
 ```php
-$value = get_key_value( 'my_not_found_key', function($key,...$args)
+$value = get_key_value( 'my_not_found_key', function($key, ...$args)
     {
         // do something to generate $value, and save it
         set_key_value( $key, $value, HOUR_IN_SECONDS );
         return $value;
     }
+);
+
+$value = get_key_value( 'my_not_found_key', function($key, ...$args)
+    {
+        // do something to generate $value
+        return $value;
+    },
+    HOUR_IN_SECONDS
 );
 ```
 
@@ -192,8 +202,10 @@ See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache
 
 ### Changelog
 
-#### Version 1.1.0 – June 17, 2025
+#### Version 1.1.0 – June 18, 2025
 
++   Made this {eac}Doojigger helper a stand-alone MU-Plugin.
++   Allow `$expires` with `get_key_value()` to `set_key_value()` the `$default` value.
 +   Added `encrypt` option.
 +   Added `transient` option.
 +   Added `nocache` option (non-persistent).

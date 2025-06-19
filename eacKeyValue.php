@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        17-Jun-2025
+ * Last Updated:        18-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -166,21 +166,25 @@ namespace EarthAsylumConsulting
                     }
                     // non-persistent groups
                     wp_cache_add_non_persistent_groups(self::NOCACHE_GROUPS);
+
+                    // on shutdown, save known tables and missed keys
+                    add_action( "shutdown", function() {
+                        $parameters = [
+                            'site_tables'   => self::$site_tables,
+                            'missed_keys'   => self::$missed_keys,
+                        ];
+                        wp_cache_set(__CLASS__,$parameters,self::CACHE_ID);
+                    });
+                    // on startup, load known tables and missed keys
+                    if ($parameters = wp_cache_get(__CLASS__,self::CACHE_ID)) {
+                        self::$site_tables = $parameters['site_tables'];
+                        self::$missed_keys = $parameters['missed_keys'];
+                    }
                 }
 
                 self::get_constants();
                 if (!wp_using_ext_object_cache()) {
                      self::$persist_transients  = true;
-                }
-
-                // pre-load known tables and missed keys
-                if ($parameters = wp_cache_get(__CLASS__,self::CACHE_ID)) {
-                    if (isset($parameters['site_tables'])) {
-                        self::$site_tables = $parameters['site_tables'];
-                    }
-                    if (isset($parameters['missed_keys'])) {
-                        self::$missed_keys = $parameters['missed_keys'];
-                    }
                 }
 
                 self::schedule_purge();
@@ -261,6 +265,10 @@ namespace EarthAsylumConsulting
                     $result = (is_callable($default))
                         ? call_user_func($default,$key,...$args)
                         : $default;
+                    // passing expiration shows intent to save
+                    if ($result && $expires) {
+                        self::put($key,$result,...$args);
+                    }
                 }
 
                 return $result;
@@ -288,13 +296,13 @@ namespace EarthAsylumConsulting
                 // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
                 extract(self::parse_options($key,...$args));
 
-                if ($result = $wpdb->get_results(
+                if ($result = $wpdb->get_row(
                         $wpdb->prepare($query,self::get_table(),$key,self::NULL_DATE,self::expires()) )
                 ) {
-                    $value  = maybe_unserialize($result[0]->value);
+                    $value  = maybe_unserialize($result->value);
                     if ($toCache) {
-                        $seconds = ($result[0]->expires != self::NULL_DATE)
-                                    ? strtotime($result[0]->expires) - strtotime('now')
+                        $seconds = ($result->expires != self::NULL_DATE)
+                                    ? strtotime($result->expires) - strtotime('now')
                                     : 0;
                         wp_cache_set( $key, $value, $cache_id, $seconds );
                     }
@@ -341,6 +349,8 @@ namespace EarthAsylumConsulting
                     if (!$transient || self::$persist_transients) {
                         // mark for update
                         self::mark_commit_key($key,$expires ?? true,$cache_id);
+                    } else {
+                        unset(self::$missed_keys[self::$site_id][$key]);
                     }
                 }
 
@@ -644,12 +654,6 @@ namespace EarthAsylumConsulting
                     self::commit_site($commit_keys);
                 }
                 self::$commit_keys = [];
-
-                $parameters = [
-                    'site_tables'   => self::$site_tables,
-                    'missed_keys'   => self::$missed_keys,
-                ];
-                wp_cache_set(__CLASS__,$parameters,self::CACHE_ID);
             }
 
 
@@ -715,9 +719,9 @@ namespace EarthAsylumConsulting
 
                 if (!isset(self::$site_tables[$table]))
                 {
-                    if (! ($wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) == $table) ) {
-                        self::$site_tables[$table] = self::create_table($table);
-                    }
+                    self::$site_tables[$table] = (!($wpdb->get_var("SHOW TABLES LIKE '{$table}'") == $table))
+                        ? self::create_table($table)
+                        : true;
                 }
 
                 return $table;
