@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        18-Jun-2025
+ * Last Updated:        19-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -174,11 +174,11 @@ namespace EarthAsylumConsulting
                             'missed_keys'   => self::$missed_keys,
                         ];
                         wp_cache_set(__CLASS__,$parameters,self::CACHE_ID);
-                    });
+                    },PHP_INT_MAX);
                     // on startup, load known tables and missed keys
                     if ($parameters = wp_cache_get(__CLASS__,self::CACHE_ID)) {
-                        self::$site_tables = $parameters['site_tables'];
-                        self::$missed_keys = $parameters['missed_keys'];
+                        self::$site_tables = $parameters['site_tables'] ?: [[]];
+                        self::$missed_keys = $parameters['missed_keys'] ?: [[]];
                     }
                 }
 
@@ -798,6 +798,8 @@ namespace EarthAsylumConsulting
                             $wpdb->rows_affected.' keys deleted from '.$table);
                     }
                 }
+
+                wp_cache_delete(__CLASS__,self::CACHE_ID);
             }
 
 
