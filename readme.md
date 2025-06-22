@@ -8,7 +8,7 @@
 Plugin URI:             https://github.com/EarthAsylum/eacKeyValue  
 Author:                 [EarthAsylum Consulting](https://www.earthasylum.com)  
 Stable tag:             1.1.0  
-Last Updated:           20-Jun-2025  
+Last Updated:           22-Jun-2025  
 Requires at least:      5.8  
 Tested up to:           6.8  
 Requires PHP:           8.1  
@@ -202,7 +202,7 @@ See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache
 
 ### Changelog
 
-#### Version 1.1.0 – June 20, 2025
+#### Version 1.1.0 – June 22, 2025
 
 +   Made this {eac}Doojigger helper a stand-alone MU-Plugin.
 +   Allow `$expires` with `get_key_value()` to `set_key_value()` the `$default` value.

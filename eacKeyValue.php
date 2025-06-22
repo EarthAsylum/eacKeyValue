@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        20-Jun-2025
+ * Last Updated:        22-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -673,8 +673,9 @@ namespace EarthAsylumConsulting
                         ];
                     } else if (is_array($isCached)) {
                         $value = wp_cache_get( $key, $isCached[1], false, $found );
-                        if (!$found) {
-                            self::is_error("{$key} ({$isCached[1]}) not found in wp_cache",__FUNCTION__);
+                        if (!$found) {	// cache cleared?
+                        //    self::is_error("{$key} ({$isCached[1]}) not found in wp_cache",__FUNCTION__);
+                        	continue;
                         }
                         $toWrite[] = [
                             esc_sql($key),
