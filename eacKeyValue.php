@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        22-Jun-2025
+ * Last Updated:        27-Jun-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -225,12 +225,12 @@ namespace EarthAsylumConsulting
              *
              * @param string            $key
              * @param mixed|callable    $default
-             * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+             * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
              * @return mixed|null       $value
              */
             public static function get(string|int|\Stringable $key, $default=null, ...$args)
             {
-                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
+                // $key, $cache_id, $expires, $transient, $nocache, $prefetch, $sitewide, $encrypt
                 extract(self::parse_options($key,...$args));
 
                 if (array_key_exists($key,self::$missed_keys[self::$site_id]))
@@ -266,7 +266,7 @@ namespace EarthAsylumConsulting
                         ? call_user_func($default,$key,...$args)
                         : $default;
                     // passing expiration shows intent to save
-                    if ($result && $expires) {
+                    if ($expires && $result && !is_wp_error($result)) {
                         self::put($key,$result,...$args);
                     }
                 }
@@ -280,7 +280,7 @@ namespace EarthAsylumConsulting
              *
              * @param string        $key
              * @param bool          $toCache save to object cache after read
-             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
              * @return mixed|null   $value
              */
             public static function read(string|int|\Stringable $key, $toCache=false, ...$args)
@@ -293,7 +293,7 @@ namespace EarthAsylumConsulting
                              "WHERE `key` = '%s' AND (`expires` = '%s' OR `expires` >= '%s') LIMIT 1";
                 }
 
-                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
+                // $key, $cache_id, $expires, $transient, $nocache, $prefetch, $sitewide, $encrypt
                 extract(self::parse_options($key,...$args));
 
                 if ($result = $wpdb->get_row(
@@ -323,12 +323,12 @@ namespace EarthAsylumConsulting
              * @param string        $key
              * @param mixed         $value value or null
              * @param mixed         $expires (timestamp, seconds, datetime, string)
-             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
              * @return mixed        true
              */
             public static function put(string|int|\Stringable $key, $value, $expires=null, ...$args)
             {
-                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
+                // $key, $cache_id, $expires, $transient, $nocache, $prefetch, $sitewide, $encrypt
                 extract(self::parse_options($key,$expires,...$args));
 
                 if (is_null($value) || ($expires && $expires <= self::expires()))
@@ -364,7 +364,7 @@ namespace EarthAsylumConsulting
              * @param string        $key
              * @param mixed         $value (null = get from cache)
              * @param mixed         $expires (timestamp, seconds, datetime, string)
-             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
              * @return int          rows affected
              */
             public static function write(string|int|\Stringable $key, $value=null, $expires=null, ...$args)
@@ -377,7 +377,7 @@ namespace EarthAsylumConsulting
                              "ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `expires` = VALUES(`expires`);";
                 }
 
-                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
+                // $key, $cache_id, $expires, $transient, $nocache, $prefetch, $sitewide, $encrypt
                 extract(self::parse_options($key,$expires,...$args));
 
                 if (is_null($value)) {
@@ -415,14 +415,14 @@ namespace EarthAsylumConsulting
              * Delete cache value
              *
              * @param string        $key
-             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+             * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
              * @return int          rows affected
              */
             public static function delete(string|int|\Stringable $key, ...$args)
             {
                 global $wpdb;
 
-                // $key, $expires, $transient, $nocache, $prefetch, $sitewide, $cache_id
+                // $key, $cache_id, $expires, $transient, $nocache, $prefetch, $sitewide, $encrypt
                 extract(self::parse_options($key,...$args));
 
                 wp_cache_delete( $key, $cache_id );
@@ -445,7 +445,7 @@ namespace EarthAsylumConsulting
              * @param string        $key
              * @param string[]      $args
              *                      - $expires (timestamp, seconds, datetime, string)
-             *                      - 'transient', 'nocache', 'prefetch', 'sitewide'
+             *                      - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
              * @return array        [ 'key'=>, 'cache_id'=>, 'expires'=>, ... ]
              */
             protected static function parse_options($key, ...$args )
@@ -837,7 +837,7 @@ namespace  // global scope
          *
          * @param Stringable        $key
          * @param mixed|callable    $default (if key is not found)
-         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
          * @return mixed            unserialized value
          */
         function get_key_value($key, $default=null, ...$args)
@@ -850,7 +850,7 @@ namespace  // global scope
          *
          * @param Stringable        $key
          * @param mixed|callable    $default (if key is not found)
-         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
          * @return mixed            unserialized value
          */
         function get_site_key_value($key, $default=null, ...$args)
@@ -867,7 +867,7 @@ namespace  // global scope
          * @param Stringable        $key
          * @param mixed             $value
          * @param mixed             $expires (timestamp, seconds, datetime, string)
-         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
          * @return bool             true
          */
         function set_key_value($key, $value, $expires=null, ...$args)
@@ -881,7 +881,7 @@ namespace  // global scope
          * @param Stringable        $key
          * @param mixed             $value
          * @param mixed             $expires (timestamp, seconds, datetime, string)
-         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide'
+         * @param string[]          $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
          * @return bool             true
          */
         function set_site_key_value($key, $value, $expires=null, ...$args)
@@ -908,7 +908,8 @@ namespace  // global scope
         // get/set a key using a callback
         $value = get_key_value( 'key_value_callback', function($key)
             {
-                set_key_value( $key, wp_date('c'), MINUTE_IN_SECONDS );
+            	$value = wp_date('c');
+                set_key_value( $key, $value, MINUTE_IN_SECONDS );
                 return $value;
             }
         );
@@ -916,7 +917,7 @@ namespace  // global scope
         // get/set a transient key
         if ($value = get_key_value('key_value_transient',null,'transient')) {
             echo "<div class='notice'><pre>get key_value_transient ".var_export($value,true)."</pre></div>";
-            set_key_value('key_value_transient',null);
+            set_key_value('key_value_transient',null,'transient);
         } else {
             set_key_value('key_value_transient',wp_date('c'),HOUR_IN_SECONDS,'transient');
         }
@@ -924,7 +925,7 @@ namespace  // global scope
         // get/set a prefetch key
         if ($value = get_key_value('key_value_prefetch',null,'prefetch')) {
             echo "<div class='notice'><pre>get key_value_prefetch ".var_export($value,true)."</pre></div>";
-            set_key_value('key_value_prefetch',null);
+            set_key_value('key_value_prefetch',null,'prefetch);
         } else {
             set_key_value('key_value_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch');
         }
@@ -940,7 +941,7 @@ namespace  // global scope
         // get/set a sitewide-prefetch key
         if ($value = get_key_value('key_value_site_prefetch',null,'prefetch','sitewide')) {
             echo "<div class='notice'><pre>get key_value_site_prefetch ".var_export($value,true)."</pre></div>";
-            set_key_value('key_value_site_prefetch',null,'sitewide');
+            set_key_value('key_value_site_prefetch',null,'prefetch','sitewide');
         } else {
             set_key_value('key_value_site_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch','sitewide');
         }
