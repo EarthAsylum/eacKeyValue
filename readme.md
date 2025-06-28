@@ -191,7 +191,7 @@ Constants may be defined in wp-config.php.
 
 This plugin is included with and used by [{eac}Doojigger](https://eacdoojigger.earthasylum.com), An advanced rapid plugin development platform.
 
-See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache/) - a persistent object cache using a SQLite database to cache WordPress objects; A drop-in replacement to the WP_Object_Cache used by WordPress.
+See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache/) - a persistent object cache using a SQLite database to cache WordPress objects; A drop-in replacement to the [WP_Object_Cache](https://developer.wordpress.org/reference/classes/wp_object_cache/) used by WordPress.
   
 - - -
 
