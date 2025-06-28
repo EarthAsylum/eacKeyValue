@@ -96,7 +96,7 @@ These parameters alter functionality and are used to determine group keys. As su
     set_key_value( $key, $value, [$expires], "encrypt" );
     get_key_value( $key, $default, "decrypt" );
     
-Optional parameters (including $expires) may be combined in any order.
+Optional parameters (including `$expires`) may be combined in any order.
 
     // set_key_value: $key, $value must be the first 2 function arguments
     set_key_value( $key, $value, $expires, "prefetch", "transient" );
@@ -181,7 +181,7 @@ Constants may be defined in wp-config.php.
 
 ### Installation
 
-+   [Download {eac}KeyValue](https://github.com/EarthAsylum/eacKeyValue/archive/refs/heads/main.zip) from the (GitHub repository)[https://github.com/EarthAsylum/eacKeyValue].
++   [Download {eac}KeyValue](https://github.com/EarthAsylum/eacKeyValue/archive/refs/heads/main.zip) from the [GitHub repository](https://github.com/EarthAsylum/eacKeyValue).
 
 +   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder and add `set_key_value()` and `get_key_value()` calls as needed.
   
