@@ -129,9 +129,11 @@ Set a site-wide, transient key/value:
     set_key_value('my_transient_key', $value, HOUR_IN_SECONDS, 'transient', 'sitewide');
 
 Retrieve a key with a default value:
+
     $value = get_key_value( 'my_not_found_key', 'default_value' );
 
 Using a callback when retrieving a key:
+
     $value = get_key_value( 'my_not_found_key', function($key, ...$args)
         {
             // do something to generate $value, and save it
@@ -172,14 +174,15 @@ Constants may be defined in wp-config.php.
 
 >   If the installed object cache has the `delayed_writes` property set (`$wp_object_cache->delayed_writes`), this value will override the default auto commit.
 
-+   Override (force) the storage of transient keys when using an external object cache.
++   Override (force) the storage of transient keys when using an external object cache.  
 `define( 'EAC_KEYVALUE_PERSIST_TRANSIENTS', true );         //  default: false unless no external object cache`
   
 - - -
 
 ### Installation
 
-+   [Download {eac}KeyValue.php](https://github.com/EarthAsylum/eacKeyValue/archive/refs/heads/main.zip)
++   [Download {eac}KeyValue](https://github.com/EarthAsylum/eacKeyValue/archive/refs/heads/main.zip) from the (GitHub repository)[https://github.com/EarthAsylum/eacKeyValue].
+
 +   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder and add `set_key_value()` and `get_key_value()` calls as needed.
   
 - - -
