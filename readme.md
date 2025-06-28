@@ -48,7 +48,7 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
     eacKeyValue::flush();                               // write cache to db (automatic on shutdown)
 
 #### Method Arguments:
-
+```txt
     $key        stringable          The key to store/access
     $default    mixed|callable      default value when $key is not found (null)
     $value      mixed|null          data to be stored (should not be serialized).
@@ -58,6 +58,7 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
                                     int ( > 1 year) - timestamp (UTC)
                                     string          - textual datetime, local time (wp_timezone)
                                     DateTime object - converted to UTC
+```
 
 >   Passing `$expires` with `$default` to `get_key_value()` will save the key/value if the default value is used.
 
@@ -109,62 +110,52 @@ Optional parameters (including $expires) may be combined in any order.
 #### Examples:
 
 +   Store a permanent key/value:
-```php
-set_key_value( 'my_permanent_key', $value );
-```
+
+    set_key_value( 'my_permanent_key', $value );
 
 +   Retrieve a key/value:
-```php
-$value = get_key_value( 'my_permanent_key' );
-```
+
+    $value = get_key_value( 'my_permanent_key' );
 
 +   Store a key/value with an expiration:
-```php
-set_key_value( 'my_temporary_key', $value, HOUR_IN_SECONDS );
-set_key_value( 'my_temporary_key', $value, time() + HOUR_IN_SECONDS );
-set_key_value( 'my_temporary_key', $value, '1 hour' );
-```
+
+    set_key_value( 'my_temporary_key', $value, HOUR_IN_SECONDS );
+    set_key_value( 'my_temporary_key', $value, time() + HOUR_IN_SECONDS );
+    set_key_value( 'my_temporary_key', $value, '1 hour' );
 
 +   Set a site-wide, transient key/value:
-```php
-set_site_key_value('my_transient_key', $value, HOUR_IN_SECONDS, 'transient');
-set_key_value('my_transient_key', $value, HOUR_IN_SECONDS, 'transient', 'sitewide');
-```
+
+    set_site_key_value('my_transient_key', $value, HOUR_IN_SECONDS, 'transient');
+    set_key_value('my_transient_key', $value, HOUR_IN_SECONDS, 'transient', 'sitewide');
 
 +   Retrieve a key with a default value:
-```php
-$value = get_key_value( 'my_not_found_key', 'default_value' );
-```
+    $value = get_key_value( 'my_not_found_key', 'default_value' );
 
 +   Using a callback when retrieving a key:
-```php
-$value = get_key_value( 'my_not_found_key', function($key, ...$args)
-    {
-        // do something to generate $value, and save it
-        set_key_value( $key, $value, HOUR_IN_SECONDS );
-        return $value;
-    }
-);
+    $value = get_key_value( 'my_not_found_key', function($key, ...$args)
+        {
+            // do something to generate $value, and save it
+            set_key_value( $key, $value, HOUR_IN_SECONDS );
+            return $value;
+        }
+    );
 
-$value = get_key_value( 'my_not_found_key', function($key, ...$args)
-    {
-        // do something to generate $value
-        return $value;
-    },
-    HOUR_IN_SECONDS
-);
-```
+    $value = get_key_value( 'my_not_found_key', function($key, ...$args)
+        {
+            // do something to generate $value
+            return $value;
+        },
+        HOUR_IN_SECONDS
+    );
 
 +   Store/Retrieve an encrypted key/value:
-```php
-set_key_value( 'my_encrypted_key', $value, 'encrypt' );
-get_key_value( 'my_encrypted_key', null, 'decrypt' );
-```
+
+    set_key_value( 'my_encrypted_key', $value, 'encrypt' );
+    get_key_value( 'my_encrypted_key', null, 'decrypt' );
 
 +   Delete a key/value:
-```php
-set_key_value( 'my_permanent_key', null );
-```
+
+    set_key_value( 'my_permanent_key', null );
 
 #### Optional constants:
 
@@ -183,13 +174,14 @@ Constants may be defined in wp-config.php.
 
 +   Override (force) the storage of transient keys when using an external object cache.
 `define( 'EAC_KEYVALUE_PERSIST_TRANSIENTS', true );         //  default: false unless no external object cache`
-
+  
 - - -
 
 ### Installation
 
++   [Download {eac}KeyValue.php](https://github.com/EarthAsylum/eacKeyValue/archive/refs/heads/main.zip)
 +   Drop the `eacKeyValue.php` file into your `wp-content/mu-plugins` folder and add `set_key_value()` and `get_key_value()` calls as needed.
-
+  
 - - -
 
 ### Other Notes
@@ -197,7 +189,7 @@ Constants may be defined in wp-config.php.
 This plugin is included with and used by [{eac}Doojigger](https://eacdoojigger.earthasylum.com), An advanced rapid plugin development platform.
 
 See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache/) - a persistent object cache using a SQLite database to cache WordPress objects; A drop-in replacement to the WP_Object_Cache used by WordPress.
-
+  
 - - -
 
 ### Changelog
