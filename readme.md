@@ -48,17 +48,17 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
     eacKeyValue::flush();                               // write cache to db (automatic on shutdown)
 
 #### Method Arguments:
-```txt
-    $key        stringable          The key to store/access
-    $default    mixed|callable      default value when $key is not found (null)
-    $value      mixed|null          data to be stored (should not be serialized).
-    $expires    mixed|null          The expiration of the key/value pair.
-                                    null            - no expiration
-                                    int (<= 1 year) - seconds from now
-                                    int ( > 1 year) - timestamp (UTC)
-                                    string          - textual datetime, local time (wp_timezone)
-                                    DateTime object - converted to UTC
-```
+<pre>
+$key        stringable          The key to store/access
+$default    mixed|callable      default value when $key is not found (null)
+$value      mixed|null          data to be stored (should not be serialized).
+$expires    mixed|null          The expiration of the key/value pair.
+                                null            - no expiration
+                                int (<= 1 year) - seconds from now
+                                int ( > 1 year) - timestamp (UTC)
+                                string          - textual datetime, local time (wp_timezone)
+                                DateTime object - converted to UTC
+</pre>
 
 >   Passing `$expires` with `$default` to `get_key_value()` will save the key/value if the default value is used.
 
