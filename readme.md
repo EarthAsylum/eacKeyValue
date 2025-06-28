@@ -109,29 +109,29 @@ Optional parameters (including $expires) may be combined in any order.
     
 #### Examples:
 
-+   Store a permanent key/value:
+Store a permanent key/value:
 
     set_key_value( 'my_permanent_key', $value );
 
-+   Retrieve a key/value:
+Retrieve a key/value:
 
     $value = get_key_value( 'my_permanent_key' );
 
-+   Store a key/value with an expiration:
+Store a key/value with an expiration:
 
     set_key_value( 'my_temporary_key', $value, HOUR_IN_SECONDS );
     set_key_value( 'my_temporary_key', $value, time() + HOUR_IN_SECONDS );
     set_key_value( 'my_temporary_key', $value, '1 hour' );
 
-+   Set a site-wide, transient key/value:
+Set a site-wide, transient key/value:
 
     set_site_key_value('my_transient_key', $value, HOUR_IN_SECONDS, 'transient');
     set_key_value('my_transient_key', $value, HOUR_IN_SECONDS, 'transient', 'sitewide');
 
-+   Retrieve a key with a default value:
+Retrieve a key with a default value:
     $value = get_key_value( 'my_not_found_key', 'default_value' );
 
-+   Using a callback when retrieving a key:
+Using a callback when retrieving a key:
     $value = get_key_value( 'my_not_found_key', function($key, ...$args)
         {
             // do something to generate $value, and save it
@@ -148,12 +148,12 @@ Optional parameters (including $expires) may be combined in any order.
         HOUR_IN_SECONDS
     );
 
-+   Store/Retrieve an encrypted key/value:
+Store/Retrieve an encrypted key/value:
 
     set_key_value( 'my_encrypted_key', $value, 'encrypt' );
     get_key_value( 'my_encrypted_key', null, 'decrypt' );
 
-+   Delete a key/value:
+Delete a key/value:
 
     set_key_value( 'my_permanent_key', null );
 
