@@ -81,7 +81,7 @@ These parameters alter functionality and are used to determine group keys. As su
     set_key_value( $key, $value, [$expires], "transient" );
     get_key_value( $key, $default, "transient" );
 
->   Changing `get_transient($name,$value)` to `get_key_value($name,$value,'transient')` in your code will convert existing WP transients to key/value pairs.
+>   Changing `get_transient($name,$default)` to `get_key_value($name,$default,'transient')` in your code will convert existing WP transients to key/value pairs.
 
 `nocache` - Marks the key/value as "non-persistent" so an external object cache will not store the key/value. It is stored in the key-value table.
 
