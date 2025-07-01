@@ -8,7 +8,7 @@
 Plugin URI:             https://github.com/EarthAsylum/eacKeyValue  
 Author:                 [EarthAsylum Consulting](https://www.earthasylum.com)  
 Stable tag:             1.1.0  
-Last Updated:           27-Jun-2025  
+Last Updated:           01-Jul-2025  
 Requires at least:      5.8  
 Tested up to:           6.8  
 Requires PHP:           8.1  
@@ -36,7 +36,7 @@ Similar to WP options/transients with less overhead and greater efficiency (and 
     set_site_key_value( $key, null );                   // delete site-wide key/value
     $value = get_site_key_value( $key, [$default] );    // read site-wide key/value
 
-#### Actors *CAN* use class methods:
+#### Actors *May* use class methods:
 
     eacKeyValue::put( $key, $value, [$expires] );       // add/update key/value
     eacKeyValue::put( $key, null );                     // delete key/value
@@ -76,17 +76,19 @@ These parameters alter functionality and are used to determine group keys. As su
     set_site_key_value( $key, $value, [$expires] );
     get_site_key_value( $key, $default );
 
-`transient` - Treat this key/value as transient. When using an external object cache, the key/value is not stored in the key-value table, assuming that the object cache will store it.
+`transient` - Treat this key/value as transient. When using an external object cache, the key/value is not stored in the key-value table, assuming that the object cache will store it. If a key/value record is not found when retrieving a `transient`, the WordPress transient is retrieved and saved as a key/value.
 
     set_key_value( $key, $value, [$expires], "transient" );
     get_key_value( $key, $default, "transient" );
+
+>   Changing `get_transient($name,$value)` to `get_key_value($name,$value,'transient')` in your code will convert existing WP transients to key/value pairs.
 
 `nocache` - Marks the key/value as "non-persistent" so an external object cache will not store the key/value. It is stored in the key-value table.
 
     set_key_value( $key, $value, [$expires], "nocache" );
     get_key_value( $key, $default, "nocache" );
 
-`prefetch` - If the object cache supports pre-fetching, indicates this should be a pre-fetched key/value. Pre-fetched items are loaded and cached in a single operation at the start of a request.
+`prefetch` - If the object cache supports pre-fetching, indicates this should be a pre-fetched key/value. Pre-fetched objects are loaded and cached in a single operation at the start of a request and should only be used for keys needed on every page.
 
     set_key_value( $key, $value, [$expires], "prefetch" );
     get_key_value( $key, $default, "prefetch" );
@@ -197,7 +199,7 @@ See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache
 
 ### Changelog
 
-#### Version 1.1.0 – June 27, 2025
+#### Version 1.1.0 – July 1, 2025
 
 +   Made this {eac}Doojigger helper a stand-alone MU-Plugin.
 +   Allow `$expires` with `get_key_value()` to `set_key_value()` the `$default` value.

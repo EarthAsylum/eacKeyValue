@@ -11,7 +11,7 @@
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
  * Version:             1.1.0
- * Last Updated:        27-Jun-2025
+ * Last Updated:        01-Jul-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
  * Requires PHP:        8.0
@@ -77,7 +77,7 @@ namespace EarthAsylumConsulting
             ];
 
             /**
-             * @var array add object cache no-caching groups
+             * @var array add object cache non-persistent groups
              */
             private const NOCACHE_GROUPS        = [
                 self::CACHE_ID.':nocaching',
@@ -153,9 +153,16 @@ namespace EarthAsylumConsulting
             {
                 // global groups (wp-object-cache)
                 wp_cache_add_global_groups(self::GLOBAL_GROUPS);
+
                 if (wp_using_ext_object_cache())
                 {
-                    // pre-fetch groups, prefetch_groups and get_group are non-standard
+                    // on startup, load known tables and missed keys
+                    if ($parameters = wp_cache_get(__CLASS__,self::CACHE_ID.':prefetch')) {
+                        self::$site_tables      = $parameters['site_tables'] ?: [[]];
+                        self::$missed_keys      = $parameters['missed_keys'] ?: [[]];
+                    }
+
+                    // pre-fetch groups (prefetch_groups and get_group are non-standard)
                     if (wp_cache_supports('prefetch_groups')) {
                         wp_cache_add_prefetch_groups(self::PREFETCH_GROUPS);
                     } else
@@ -170,16 +177,11 @@ namespace EarthAsylumConsulting
                     // on shutdown, save known tables and missed keys
                     add_action( "shutdown", function() {
                         $parameters = [
-                            'site_tables'   => self::$site_tables,
-                            'missed_keys'   => self::$missed_keys,
+                            'site_tables'       => self::$site_tables,
+                            'missed_keys'       => self::$missed_keys,
                         ];
-                        wp_cache_set(__CLASS__,$parameters,self::CACHE_ID);
+                        wp_cache_set(__CLASS__,$parameters,self::CACHE_ID.':prefetch');
                     },PHP_INT_MAX);
-                    // on startup, load known tables and missed keys
-                    if ($parameters = wp_cache_get(__CLASS__,self::CACHE_ID)) {
-                        self::$site_tables = $parameters['site_tables'] ?: [[]];
-                        self::$missed_keys = $parameters['missed_keys'] ?: [[]];
-                    }
                 }
 
                 self::get_constants();
@@ -194,7 +196,7 @@ namespace EarthAsylumConsulting
             /**
              * Check defined constants (wp_config)
              */
-            private static function get_constants()
+            protected static function get_constants()
             {
                 global $wp_object_cache;
 
@@ -253,6 +255,11 @@ namespace EarthAsylumConsulting
                         $result = null;
                         if (!$transient || self::$persist_transients) {
                             $result = self::read($key,true,...$args);
+                        }
+                        if (!is_null($result)) break;
+                        // check wp transient
+                        if ($transient) {
+                            $result = self::get_wp_transient($key,$sitewide,$expires);
                         }
                         break;
                     }
@@ -318,13 +325,52 @@ namespace EarthAsylumConsulting
 
 
             /**
+             * Check WP transient, if found put to cache
+             *
+             * @param string        $key
+             * @param bool          $sitewide
+             * @param mixed         $expires (timestamp, seconds, datetime, string)
+             * @return mixed|null   $value
+             */
+            protected static function get_wp_transient(string|int|\Stringable $key, $sitewide, $expires)
+            {
+                global $wpdb;
+
+                $result = ($sitewide) ? get_site_transient($key) : get_transient($key);
+                if (!$result) return null;
+
+                // get expiration fron WP
+                if (!$expires) {
+                    if ($sitewide) {
+                        $table  = $wpdb->sitemeta;
+                        $column = 'meta_value';
+                        $where  = "meta_name = '_site_transient_timeout_{$key}'";
+    ;                } else {
+                        $table  = $wpdb->options;
+                        $column = 'option_value';
+                        $where  = "option_name = '_transient_timeout_{$key}'";
+                    }
+                    $expires = (int) $wpdb->get_var(
+                        "SELECT {$column} FROM {$table} WHERE {$where} LIMIT 1"
+                    );
+                }
+
+                // save the transient as a key/value
+                $args = ($sitewide) ?  ['transient','sitewide'] : ['transient'];
+                self::put($key, $result, $expires, ...$args);
+
+                return $result;
+            }
+
+
+            /**
              * Update cache value
              *
              * @param string        $key
              * @param mixed         $value value or null
              * @param mixed         $expires (timestamp, seconds, datetime, string)
              * @param string[]      $args - 'transient', 'nocache', 'prefetch', 'sitewide', 'encrypt'
-             * @return mixed        true
+             * @return bool         true
              */
             public static function put(string|int|\Stringable $key, $value, $expires=null, ...$args)
             {
@@ -384,9 +430,6 @@ namespace EarthAsylumConsulting
                     $value  = wp_cache_get( $key, $cache_id, false, $found );
                     if (!$found) $value = null;
                 } else {
-                    if (is_object($value)) {
-                        $value  = clone $value;
-                    }
                     if ($encrypt) {
                         $value = \apply_filters( 'eacDoojigger_encrypt_string', $value );
                     }
@@ -586,7 +629,7 @@ namespace EarthAsylumConsulting
              *  null    - doesn't exists
              * @param string        $cache_id
              */
-            private static function mark_commit_key($key,$expires='',$cache_id='')
+            protected static function mark_commit_key($key,$expires='',$cache_id='')
             {
                 if (func_num_args() == 1)               // clear key
                 {
@@ -673,9 +716,9 @@ namespace EarthAsylumConsulting
                         ];
                     } else if (is_array($isCached)) {
                         $value = wp_cache_get( $key, $isCached[1], false, $found );
-                        if (!$found) {	// cache cleared?
+                        if (!$found) {  // cache cleared?
                         //    self::is_error("{$key} ({$isCached[1]}) not found in wp_cache",__FUNCTION__);
-                        	continue;
+                            continue;
                         }
                         $toWrite[] = [
                             esc_sql($key),
@@ -759,7 +802,7 @@ namespace EarthAsylumConsulting
             /**
              * Schedule cache purge
              */
-            public static function schedule_purge()
+            protected static function schedule_purge()
             {
                 if (self::$purge_schedule && self::$purge_initial)
                 {
@@ -908,7 +951,7 @@ namespace  // global scope
         // get/set a key using a callback
         $value = get_key_value( 'key_value_callback', function($key)
             {
-            	$value = wp_date('c');
+                $value = wp_date('c');
                 set_key_value( $key, $value, MINUTE_IN_SECONDS );
                 return $value;
             }
@@ -917,7 +960,7 @@ namespace  // global scope
         // get/set a transient key
         if ($value = get_key_value('key_value_transient',null,'transient')) {
             echo "<div class='notice'><pre>get key_value_transient ".var_export($value,true)."</pre></div>";
-            set_key_value('key_value_transient',null,'transient);
+            set_key_value('key_value_transient',null,'transient');
         } else {
             set_key_value('key_value_transient',wp_date('c'),HOUR_IN_SECONDS,'transient');
         }
@@ -925,7 +968,7 @@ namespace  // global scope
         // get/set a prefetch key
         if ($value = get_key_value('key_value_prefetch',null,'prefetch')) {
             echo "<div class='notice'><pre>get key_value_prefetch ".var_export($value,true)."</pre></div>";
-            set_key_value('key_value_prefetch',null,'prefetch);
+            set_key_value('key_value_prefetch',null,'prefetch');
         } else {
             set_key_value('key_value_prefetch',wp_date('c'),HOUR_IN_SECONDS,'prefetch');
         }
@@ -955,6 +998,14 @@ namespace  // global scope
             set_key_value('key_value_encrypt',null);
         } else {
             set_key_value('key_value_encrypt',wp_date('c'),HOUR_IN_SECONDS,'encrypt');
+        }
+
+        // This should work with or without a persistent object cache
+        // if a wp transient exists...
+        set_transient('key_value_wp_transient',wp_date('c'),HOUR_IN_SECONDS);
+        // ...KeyValue will get it and save it
+        if ($value = get_key_value('key_value_wp_transient',null,'transient')) {
+            echo "<div class='notice'><pre>get key_value_wp_transient ".var_export($value,true)."</pre></div>";
         }
     });
     */
