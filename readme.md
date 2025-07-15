@@ -13,6 +13,7 @@ Requires at least:      5.8
 Tested up to:           6.8  
 Requires PHP:           8.1  
 Contributors:           [earthasylum](https://github.com/earthasylum),[kevinburkholder](https://profiles.wordpress.org/kevinburkholder)  
+Donate link:            https://github.com/sponsors/EarthAsylum  
 License:                GPLv3 or later  
 License URI:            https://www.gnu.org/licenses/gpl.html  
 GitHub URI:             https://github.com/EarthAsylum/eacKeyValue  
