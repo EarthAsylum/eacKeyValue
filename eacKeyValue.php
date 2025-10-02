@@ -10,11 +10,11 @@
  * @wordpress-plugin
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
- * Version:             1.1.0
- * Last Updated:        01-Jul-2025
+ * Version:             1.1.1
+ * Last Updated:        01-Oct-2025
  * Requires at least:   5.8
  * Tested up to:        6.8
- * Requires PHP:        8.0
+ * Requires PHP:        8.1
  * Author:              EarthAsylum Consulting
  * Author URI:          http://www.earthasylum.com
  * License:             GPLv3 or later
@@ -156,12 +156,6 @@ namespace EarthAsylumConsulting
 
                 if (wp_using_ext_object_cache())
                 {
-                    // on startup, load known tables and missed keys
-                    if ($parameters = wp_cache_get(__CLASS__,self::CACHE_ID.':prefetch')) {
-                        self::$site_tables      = $parameters['site_tables'] ?: [[]];
-                        self::$missed_keys      = $parameters['missed_keys'] ?: [[]];
-                    }
-
                     // pre-fetch groups (prefetch_groups and get_group are non-standard)
                     if (wp_cache_supports('prefetch_groups')) {
                         wp_cache_add_prefetch_groups(self::PREFETCH_GROUPS);
@@ -173,6 +167,15 @@ namespace EarthAsylumConsulting
                     }
                     // non-persistent groups
                     wp_cache_add_non_persistent_groups(self::NOCACHE_GROUPS);
+
+                    // on startup, load known tables and missed keys
+                    if ($parameters = wp_cache_get(__CLASS__,self::CACHE_ID.':prefetch')) {
+                        self::$site_tables      = $parameters['site_tables'] ?: [[]];
+                        self::$missed_keys      = $parameters['missed_keys'] ?: [[]];
+                        foreach(self::$missed_keys as &$missed) {
+							$missed = array_filter($missed,fn($v) => $v > time());
+                        };
+                    }
 
                     // on shutdown, save known tables and missed keys
                     add_action( "shutdown", function() {
@@ -344,7 +347,7 @@ namespace EarthAsylumConsulting
                     if ($sitewide) {
                         $table  = $wpdb->sitemeta;
                         $column = 'meta_value';
-                        $where  = "meta_name = '_site_transient_timeout_{$key}'";
+                        $where  = "meta_key = '_site_transient_timeout_{$key}'";
     ;                } else {
                         $table  = $wpdb->options;
                         $column = 'option_value';
@@ -638,14 +641,14 @@ namespace EarthAsylumConsulting
                 }
                 else if (is_null($expires))             // does not exist
                 {
-                    self::$missed_keys[self::$site_id][$key] = null;
+                    self::$missed_keys[self::$site_id][$key] = time()+(DAY_IN_SECONDS/3);
                     unset(self::$commit_keys[self::$site_id][$key]);
                 }
                 else                                    // to be committed
                 {
                     if ($expires === false) {           // to delete
                         self::$commit_keys[self::$site_id][$key] = false;
-                        self::$missed_keys[self::$site_id][$key] = null;
+                        self::$missed_keys[self::$site_id][$key] = time()+(DAY_IN_SECONDS/3);
                     } else {                            // to update
                         self::$commit_keys[self::$site_id][$key] = [$expires,$cache_id];
                         unset(self::$missed_keys[self::$site_id][$key]);

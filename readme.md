@@ -7,8 +7,8 @@
 
 Plugin URI:             https://github.com/EarthAsylum/eacKeyValue  
 Author:                 [EarthAsylum Consulting](https://www.earthasylum.com)  
-Stable tag:             1.1.0  
-Last Updated:           01-Jul-2025  
+Stable tag:             1.1.1  
+Last Updated:           01-Oct-2025  
 Requires at least:      5.8  
 Tested up to:           6.8  
 Requires PHP:           8.1  
@@ -194,11 +194,16 @@ Constants may be defined in wp-config.php.
 
 This plugin is included with and used by [{eac}Doojigger](https://eacdoojigger.earthasylum.com), An advanced rapid plugin development platform.
 
-See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache/) - a persistent object cache using a SQLite database to cache WordPress objects; A drop-in replacement to the [WP_Object_Cache](https://developer.wordpress.org/reference/classes/wp_object_cache/) used by WordPress.
+See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache/) - a persistent object cache using APCu & SQLite to cache WordPress objects; A drop-in replacement to the [WP_Object_Cache](https://developer.wordpress.org/reference/classes/wp_object_cache/) used by WordPress.
   
 - - -
 
 ### Changelog
+
+#### Version 1.1.1 – October 1, 2025
+
++   Fixed SQL select for sitewide transient (meta_key).
++   Missed keys are only remembered for 8 hours.
 
 #### Version 1.1.0 – July 1, 2025
 
