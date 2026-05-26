@@ -7,10 +7,10 @@
 
 Plugin URI:             https://github.com/EarthAsylum/eacKeyValue  
 Author:                 [EarthAsylum Consulting](https://www.earthasylum.com)  
-Stable tag:             1.1.1  
-Last Updated:           01-Oct-2025  
+Stable tag:             1.1.2  
+Last Updated:           26-May-2026  
 Requires at least:      5.8  
-Tested up to:           6.8  
+Tested up to:           7.0  
 Requires PHP:           8.1  
 Contributors:           [earthasylum](https://github.com/earthasylum),[kevinburkholder](https://profiles.wordpress.org/kevinburkholder)  
 Donate link:            https://github.com/sponsors/EarthAsylum  
@@ -199,6 +199,10 @@ See also: [{eac}ObjectCache](https://eacdoojigger.earthasylum.com/eacobjectcache
 - - -
 
 ### Changelog
+
+#### Version 1.1.2 – May 26, 2026
+
++   Compatible with WordPress 7.0.
 
 #### Version 1.1.1 – October 1, 2025
 

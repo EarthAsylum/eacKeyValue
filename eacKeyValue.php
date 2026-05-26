@@ -10,10 +10,10 @@
  * @wordpress-plugin
  * Plugin Name:         {eac}KeyValue
  * Description:         {eac}KeyValue - key-value pair storage mechanism for WordPress
- * Version:             1.1.1
- * Last Updated:        01-Oct-2025
+ * Version:             1.1.2
+ * Last Updated:        26-May-2026
  * Requires at least:   5.8
- * Tested up to:        6.8
+ * Tested up to:        7.0
  * Requires PHP:        8.1
  * Author:              EarthAsylum Consulting
  * Author URI:          http://www.earthasylum.com
